@@ -233,3 +233,18 @@ unterminated. That ruled out the scanner in under a minute and pointed straight 
 separate cause (an unrelated `array_type` gap). Reproducing a suspect algorithm standalone
 against the real input is a fast way to separate "my new code is broken" from "something else,
 upstream or downstream, is broken" without adding printf/debug builds to the scanner itself.
+
+## Round 7 — 2026-08-10
+
+### `tree-sitter test`/`parse` hardcode `src/parser.c`; `generate -o` doesn't help them
+
+`tree-sitter generate -o <dir>` redirects where `generate` *writes* its output, but `test` and
+`parse` (checked `--help` on both — no `--src-dir` or similar) always read the compiled parser
+from `<grammar-path>/src/parser.c`. Wanting generated files physically outside `src/` (so `src/`
+can hold only hand-written source, like `scanner.c`) while keeping the standard `tree-sitter
+test` workflow working means the two requirements can't both be satisfied by CLI flags alone.
+Symlinks resolve it: `gen-src/` is the real `-o` target (gitignored), `src/` holds `scanner.c`
+plus symlinks (`parser.c`, `grammar.json`, `node-types.json`, `tree_sitter/`) pointing into
+`gen-src/`. The symlinks are themselves tiny, real, trackable files — set up once, not
+regenerated per `tree-sitter generate` run, since they just point at paths whose contents change
+underneath them.

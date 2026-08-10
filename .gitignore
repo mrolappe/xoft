@@ -4,5 +4,4 @@ node_modules/
 .DS_Store
 .codegraph/
 .claude/settings.local.json
-grammars/*/src/*
-!grammars/*/src/scanner.c
+grammars/*/gen-src/

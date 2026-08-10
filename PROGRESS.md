@@ -28,3 +28,4 @@ Cross-cutting records: [insights](docs/insights.md) · [errors and mitigations](
 | 4 | 2026-08-10 | M1.2b — WITH, LOOP, EXIT, RETURN statements, empty statements, CASE label ranges confirmed |
 | 5 | 2026-08-10 | M1.2c — IS, SET, open arrays confirmed as already working; procedure types fixed in `formal_type`; incidental fix for `field_list_seq` trailing-semicolon gap |
 | 6 | 2026-08-10 | M1.3 — external C scanner for nested comments + `(*$…*)` pragma node; `.gitignore` fix so `scanner.c` is tracked |
+| 7 | 2026-08-10 | Infra: generated tree-sitter output moved to `gen-src/` (gitignored), `src/` now holds only hand-written `scanner.c` plus symlinks into `gen-src/` so `tree-sitter test`/`parse` keep working unmodified |
