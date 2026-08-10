@@ -648,3 +648,42 @@ attempt yet to re-check whether `oberon-a/source/amiga/*.mod` files now pass in 
 *second* blocking construct further down (`sweep_corpus.py` was only re-run in aggregate this
 round, not re-sampled per-file — that's the natural first step next round: check how many
 `oberon-a/source/amiga/*.mod` files still fail and on what, before sampling fresh territory).
+
+## M1.4 continued — repeated/interleaved declaration sections (round 15, 2026-08-10)
+
+Followed up on round 14's concrete lead: sampled fresh `oberon-a/source/amiga/*.mod` failures
+(`CDDevice.mod`, `Config.mod`, `ClipBoard.mod`, `Disk.mod`, `Graphics.mod`) and found every one
+failing on a bare `CONST` or `TYPE` keyword mid-file, with narrow `(ERROR [n,0]-[n,5])` spans —
+not a whole-file failure, and not a new dialect construct. These files group logically-related
+constants/types under multiple separate `CONST`/`TYPE` blocks within a single module (e.g.
+`CDDevice.mod` has three separate `CONST` sections at lines 88, 130, 168, each preceded by a
+comment banner).
+
+Checked `docs/language-baseline.md` first per round 13's insight ("not every gap is a scoping
+question"): the normative EBNF's `DeclSeq` is `{ CONST {ConstDecl ";"} | TYPE {TypeDecl ";"} |
+VAR {VarDecl ";"}} {ProcDecl ";" | ForwardDecl ";"}` — the *outer* `{}` means the whole
+CONST/TYPE/VAR alternation repeats zero or more times, not just the inner per-declaration lists.
+`grammar.js` had this wrong at all three declaration-sequence sites (plain `MODULE`, `DEFINITION`
+module, `procedure_body`): each used `optional($.const_decls), optional($.type_decls),
+optional($.variable_decls)` — one section of each kind, fixed order. This was a plain grammar
+bug against the normative baseline, not a dialect extension; nothing to flag to the user.
+
+**Grammar change**, test-first (`tree-sitter test` red before, green after): all three sites'
+three `optional(...)` lines replaced with one `repeat(choice($.const_decls, $.type_decls,
+$.variable_decls))`. No new rules, no scanner changes, `tree-sitter generate` reported zero
+conflicts (the three section rules already start with distinct keywords, so GLR needs no help
+disambiguating).
+
+New corpus test: `declarations.txt` "Repeated and interleaved decl sections" (`CONST`/`TYPE`/
+`CONST`, three sections in one module, shapes copied verbatim from existing single-section
+tests). `tree-sitter test`: 55/55 green (54 before + 1 new).
+
+**Impact:** `sweep_corpus.py` 41.41% → 54.42% (328 → 431 of 792 passing), **+103 files** — by far
+the largest single-round gain since the sweep tool existed, confirming this is a widespread
+pattern across the corpus, not an Oberon-A-only quirk (`grep`-plausible: any module organizing
+declarations by logical grouping rather than one big `CONST`/`TYPE`/`VAR` block hits this).
+
+M1 is still below its ≥95% exit criterion (54.42%). Next round should re-sample fresh failures
+across corpus roots (not just `oberon-a/source/amiga/`) since this fix likely cleared out a
+different mix of files than round 14 anticipated — no re-sampling done yet this round beyond the
+aggregate number.

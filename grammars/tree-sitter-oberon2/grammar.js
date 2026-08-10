@@ -55,9 +55,7 @@ module.exports = grammar({
       seq(
         $.module_header,
         optional($.import_list),
-        optional($.const_decls),
-        optional($.type_decls),
-        optional($.variable_decls),
+        repeat(choice($.const_decls, $.type_decls, $.variable_decls)),
         repeat($.procedure_decls),
         optional(seq(
           $.kBegin,
@@ -68,9 +66,7 @@ module.exports = grammar({
       seq(
         $.definition_header,
         optional($.import_list),
-        optional($.const_decls),
-        optional($.type_decls),
-        optional($.variable_decls),
+        repeat(choice($.const_decls, $.type_decls, $.variable_decls)),
         repeat($.definition_proc_decl),
         $.module_footer
       )
@@ -354,9 +350,7 @@ module.exports = grammar({
     // (early return inside IF branches).
     procedure_body: $ => seq(
       //$.declaration_seq,
-      optional($.const_decls),
-      optional($.type_decls),
-      optional($.variable_decls),
+      repeat(choice($.const_decls, $.type_decls, $.variable_decls)),
       repeat($.procedure_decls),
       optional(seq($.kBegin, optional($.statement_seq))),
       $.kEnd

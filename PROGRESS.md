@@ -5,7 +5,7 @@ Overall state of the xoft MVP. One line per milestone; details in the per-phase 
 | Milestone | State | Detail |
 |---|---|---|
 | M0 — Foundations | ✅ done | [docs/progress/m0-foundations.md](docs/progress/m0-foundations.md) |
-| M1 — Grammar | 🟨 in progress (M1.1, M1.2a, M1.2b, M1.2c, M1.3, M1.5 done; M1.4 sweep tool + `INLINE` + bracket pragmas + brace annotations + `ASSEMBLER` + `POINTER TO ARRAY OF Type` + single-quoted strings + bodiless procedure headings + `CASE...ELSE` + Oberon-A system flags/square-bracket library calls done, ≥95% exit criterion not yet met — 41.41%, see below) | [docs/progress/m1-grammar.md](docs/progress/m1-grammar.md) |
+| M1 — Grammar | 🟨 in progress (M1.1, M1.2a, M1.2b, M1.2c, M1.3, M1.5 done; M1.4 sweep tool + `INLINE` + bracket pragmas + brace annotations + `ASSEMBLER` + `POINTER TO ARRAY OF Type` + single-quoted strings + bodiless procedure headings + `CASE...ELSE` + Oberon-A system flags/square-bracket library calls + repeated/interleaved decl sections done, ≥95% exit criterion not yet met — 54.42%, see below) | [docs/progress/m1-grammar.md](docs/progress/m1-grammar.md) |
 | M2 — Core: lossless parse/serialize | ⬜ not started | — |
 | M3 — Diagnostics and CLI | ⬜ not started | — |
 | M4 — Corpus runner | ⬜ not started | — |
@@ -36,3 +36,4 @@ Cross-cutting records: [insights](docs/insights.md) · [errors and mitigations](
 | 12 | 2026-08-10 | M1.4 continued — implemented AmigaOberon's bodiless procedure heading (`Interfaces/*.mod` system-call wrappers), reusing `definition_proc_decl` as a third `procedure_decls` alternative and adding a `conflicts` declaration for the resulting GLR ambiguity with `procedure_decl`; 30.68% → 36.36% (243 → 288/792) |
 | 13 | 2026-08-10 | M1.4 continued — implemented `CASE ... ELSE ... END`, a normative Oberon-2 EBNF construct the grammar was simply missing (not a dialect scoping question); `case_statement` gained the same optional `ELSE` arm `if_statement` already had; 36.36% → 39.39% (288 → 312/792) |
 | 14 | 2026-08-10 | M1.4 continued — implemented Oberon-A's square-bracket dialect family from `Oberon-A/docs/OC.doc`: `sysflag` on `MODULE`/`POINTER`/`RECORD`/`PROCEDURE`, `square_vector_offset` and `external_code_names` on procedure headings, `reg_spec` (with vararg `..` marker) on formal parameters; 39.39% → 41.41% (312 → 328/792) |
+| 15 | 2026-08-10 | M1.4 continued — fixed `DeclSeq` to allow repeated/interleaved `CONST`/`TYPE`/`VAR` sections per the normative baseline EBNF's outer `{}` (was fixed-order, one of each); a plain grammar bug, not a dialect extension; 41.41% → 54.42% (328 → 431/792), +103 files, largest single-round gain to date |

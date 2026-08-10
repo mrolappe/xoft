@@ -476,3 +476,25 @@ leading `-` is optional per its own EBNF, AmigaOberon's is mandatory). Modeled a
 rules (`vector_offset`, `square_vector_offset`) rather than one rule accepting either delimiter —
 collapsing them would blur a real dialect distinction for no parsing benefit, since the two never
 compete for the same input.
+
+### A narrow `(ERROR [n,0]-[n,end])` on a bare section keyword is a fixed-order/cardinality bug, not a new construct
+
+Round 15's `oberon-a/source/amiga/*.mod` failures all had the same shape: a single-line ERROR
+spanning exactly one keyword (`CONST`, `TYPE`) mid-file, not a whole-file or multi-hundred-line
+span. That shape — the parser accepted everything before the keyword and everything the keyword
+*would* introduce, it just wasn't expecting the keyword to reappear in that position — is the
+signature of a repetition/ordering bug in an already-modeled rule, not an unhandled shape.
+Worth checking `grammar.js`'s existing rule for a hardcoded `optional(...)`/fixed sequence before
+assuming a new rule is needed, whenever a failure span is this narrow and lands exactly on a
+keyword the grammar clearly already knows.
+
+### The normative EBNF's outer braces are easy to miss when reading it as "one CONST, one TYPE, one VAR"
+
+`DeclSeq = { CONST {ConstDecl ";"} | TYPE {TypeDecl ";"} | VAR {VarDecl ";"}} {ProcDecl ";" |
+ForwardDecl ";"}` has *two* levels of repetition: the inner `{}` repeats declarations within one
+section, the outer `{}` repeats whole sections, in any order, any number of times (including
+zero). It's easy to transcribe this as "CONST section, then TYPE section, then VAR section, each
+optional" (what `grammar.js` had) and miss that the outer brace makes the whole group repeatable
+— the visual nesting doesn't make the two `{}` levels obvious at a glance. Worth re-reading a
+baseline EBNF rule's brace nesting literally, not from memory of "how Oberon declaration order
+usually looks", when a corpus sample defies grammar.js's current shape.

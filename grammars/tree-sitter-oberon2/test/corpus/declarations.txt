@@ -383,3 +383,57 @@ END Constants.
   (module_footer
     (kEnd)
     (ident)))
+
+=====================================
+Repeated and interleaved decl sections
+=====================================
+
+MODULE Repeated;
+  CONST
+    a = 1;
+  TYPE
+    t = INTEGER;
+  CONST
+    b = 2;
+END Repeated.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (const_decls
+    (kConst)
+    (const_decl
+      (ident_def
+        (ident))
+      (const_expression
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (number
+                  (integer)))))))))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (qualident
+          (ident)))))
+  (const_decls
+    (kConst)
+    (const_decl
+      (ident_def
+        (ident))
+      (const_expression
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (number
+                  (integer)))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
