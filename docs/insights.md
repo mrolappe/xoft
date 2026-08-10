@@ -153,3 +153,39 @@ qualidents that this grammar doesn't have. `tree-sitter query <file> <source>` w
 report 0 matches instead of erroring when a query pattern's shape just never occurs — silent,
 not loud. Always cross-check against `node-types.json` fields before trusting a ported query,
 and smoke-test it on a real source file, not just the corpus.
+
+## Round 5 — 2026-08-10
+
+### A logged residual `ERROR` was misdiagnosed one round earlier
+
+M1.2b's notes attributed `Printer.Mod`'s one residual `ERROR` to `SET` ("`ARRAY 8 OF SET`, SET
+isn't a type yet"). It wasn't `SET` — isolating `used: ARRAY 8 OF SET;` alone showed it parses
+clean; the error only appeared because that line sits inside a `RECORD` with a trailing `";"`
+before `END`, the already-known `field_list_seq` gap logged back in round 3. A one-line note
+written under time pressure ("this field triggers an error, and this field also happens to be
+where the not-yet-supported construct lives") had fused two unrelated facts into one incorrect
+causal claim. The general lesson: when a task brief attributes a real error to a specific
+construct, isolate that construct alone (delete everything else around it) before trusting the
+attribution — the M1.2a/b "confirm before coding" discipline applies to diagnosing existing
+`ERROR`s, not just to deciding whether new grammar is needed.
+
+### A rule can have two shapes for the same syntax, and only one gets fixed
+
+`procedure_type` (`PROCEDURE [FormalPars]`) was already reachable from `struct_type`, so
+`PROCEDURE(...)` worked fine as a `RECORD` field or a `TYPE` declaration's RHS. But
+`fp_section` — a formal parameter's type — doesn't go through `type`/`struct_type` at all; it
+goes through a separate, narrower `formal_type` rule (`{"ARRAY" "OF"} qualident`) that was never
+widened when `procedure_type` was added. Same construct, two different grammar paths, only one
+of which got the memo. Worth checking, when adding a new alternative to `Type`, whether every
+production that's supposed to accept `Type` actually routes through the same rule — or has its
+own narrower stand-in that also needs the addition.
+
+### Both M1.2c grammar changes were structurally regression-proof
+
+`formal_type` gained a `choice` alternative; `field_list_seq` gained a `repeat1` branch
+alongside the existing one. Both are pure widenings — every string the old rule accepted, the
+new rule still accepts, plus more. This means re-running the spot-check files didn't need a
+byte-for-byte "before" `ERROR`-count comparison to rule out regressions on constructs the change
+didn't touch: a `choice`/`repeat1` addition can only turn some previous `ERROR`s into successful
+parses, never the reverse. Worth remembering as a fast regression argument for this class of
+grammar change, in place of an expensive full-corpus diff.

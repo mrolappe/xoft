@@ -1,86 +1,89 @@
 # Next task
 
-**M1.2c — expressions/types: `IS`, `SET` literals, open arrays, procedure types.**
+**M1.3 — external C scanner for nested comments.**
 
 Everything a fresh session needs to start cold is below.
 
 ## What to do
 
-Working tree: `grammars/tree-sitter-oberon2/grammar.js`. Run `tree-sitter generate &&
-tree-sitter test` from that directory after every change (`src/` is gitignored — generate it
-locally, it's not there after a fresh checkout).
+Working tree: `grammars/tree-sitter-oberon2/`. Run `tree-sitter generate && tree-sitter test`
+from that directory after every change (`src/` is gitignored — generate it locally, it's not
+there after a fresh checkout).
 
-1. **`SET` as a type** — `Type = Qualident | ARRAY ... | RECORD ... | POINTER TO Type |
-   PROCEDURE [FormalPars]` in `docs/language-baseline.md` doesn't list `SET` as a builtin type
-   keyword at all in this EBNF fragment — check the lexical/type section of
-   `docs/language-baseline.md` again for where `SET` (and other builtins like `INTEGER`,
-   `BOOLEAN`, `CHAR`, `REAL`, `BYTE`, `LONGINT`, etc.) are defined; they're likely just ordinary
-   predeclared identifiers matched by `qualident`, not grammar keywords — confirm before adding
-   a `kSet` token. `voc/src/library/v4/Printer.Mod` has `used: ARRAY 8 OF SET;` (grep hit from
-   M1.2b's spot-check, still failing with `SET` unrecognized) — use it as a real test case
-   either way.
-2. **`IS` in expressions** — `relation` already includes `$.kIs` (grammar.js ~line 292) and
-   `kIs` is defined. Check whether this already works end-to-end with a real corpus example
-   (`x IS SomeType`) before assuming it needs work — same "confirm before coding" discipline as
-   M1.2a/M1.2b. If it already works, this item may just need a corpus test, not a grammar
-   change.
-3. **Open arrays** (`ARRAY OF Type` in formal parameter positions, no length) — `formal_type`
-   already has `repeat(seq($.kArray, $.kOf))` prefix (grammar.js ~line 217), which looks like
-   it already covers this. Confirm against real corpus usage (`ARRAY OF CHAR` is extremely
-   common — any STJ or Oberon-A file with a string parameter) before writing new grammar.
-4. **Procedure types** — `procedure_type = "PROCEDURE" [formal_params]` already exists
-   (grammar.js ~line 192-194) and is wired into `struct_type`. Confirm with a real corpus
-   example of a `PROCEDURE(...)` type used as a field or parameter type (`voc/src/library/
-   misc/MultiArrays.Mod` uses `f: PROCEDURE(s1,s2:SHORTINT): SHORTINT` as a parameter — grep
-   confirmed this during M1.2b's spot-check) before assuming more work is needed.
+The current `comment` rule is a flat regex token:
+`token(seq(/[(][*]([^*]*[*]+[^)*])*[^*]*[*]+[)]/))` — matches one `(* ... *)` pair, cannot
+express nesting. Report §3.6 (normative, not a dialect quirk — see `docs/language-baseline.md`):
+*"Comments may be inserted between any two symbols in a program. They are arbitrary character
+sequences opened by the bracket `(*` and closed by `*)`. Comments may be nested."* 48 corpus
+files actually nest comments (25 Oberon-A, 13 AmigaOberon, 10 STJ).
 
-**Read the grammar before writing anything** — several of these items may already be
-implemented and this milestone's real work may be narrower than its name suggests (same lesson
-as M1.2a's `DEFINITION` header and M1.2b's `CASE` label ranges, both of which turned out to
-already exist). Grep the corpus for each construct, try parsing a real example, and only write
-grammar.js changes for what's actually still broken.
+1. Add `src/scanner.c` (tree-sitter external scanner C API — `tree_sitter_oberon2_external_scanner_create/destroy/serialize/deserialize/scan`)
+   that depth-counts `(*`/`*)` pairs. Reference: tree-sitter's own docs on external scanners, and
+   any existing nested-comment scanner in the tree-sitter ecosystem (e.g. Lua, Pascal, Haskell
+   grammars all have this exact problem — `{-# ... #-}` in Haskell nests the same way) is worth
+   reading for the shape, not copying verbatim (different comment delimiters).
+2. Wire it into `grammar.js`: `externals: $ => [$.comment]` (or a dedicated token name the
+   scanner reports), replacing the current regex-token `comment` rule.
+3. `(*$ ... *)` pragmas (Oberon-A/AmigaOberon/STJ) are, per D1 in `docs/plan.md`, "a distinct
+   node kind, lexically a comment" — check whether the existing grammar already special-cases
+   this anywhere (grep `grammar.js` for `pragma` — as of M1.2c it does not) and whether it's
+   actually in scope for M1.3 or a separate item; the plan doc's D1 table lists it as a lexical
+   superset requirement but doesn't assign it to a specific milestone. If out of scope, leave a
+   note rather than silently dropping it.
+4. `binding.gyp` / `package.json` may need updating so `tree-sitter generate` picks up the new
+   `src/scanner.c` — check what upstream `viegasfh/tree-sitter-oberon-2` or a sibling grammar
+   with an external scanner does for the node binding wiring, since M1 doesn't currently build a
+   node addon (no `node-gyp rebuild` has been run yet in this project).
 
 ## Definition of done
 
-- `tree-sitter test` still green (27/27 before this round; add corpus cases per construct
-  actually touched).
-- Re-run the M1.2b spot-check files (from `grammars/tree-sitter-oberon2`):
+- `tree-sitter test` still green (33/33 before this round; add corpus cases for nested comments,
+  at minimum a `(* outer (* inner *) still outer *)` case and a `(*$ pragma *)` case if that's
+  picked up too).
+- Re-run the spot-check files (from `grammars/tree-sitter-oberon2`):
   `tree-sitter parse "/Users/mrolappe/studio/oberon-a-fs-uae-env/Oberon-A/source/ProjectOberon/Viewers.Mod"`,
-  `.../git-repos/voc/src/library/misc/MultiArrays.Mod` (still expected to fail on nested
-  comments, M1.3 scope — that's fine), and `.../git-repos/voc/src/library/v4/Printer.Mod` (the
-  `ARRAY 8 OF SET` one) — confirm the `SET`-related `ERROR` is gone and no new ones appeared.
+  `.../git-repos/voc/src/library/misc/MultiArrays.Mod` (this is the file expected to finally lose
+  most of its `ERROR` regions — it currently fails extensively, largely attributable to nested
+  comments per M1.2c's spot-check), and `.../git-repos/voc/src/library/v4/Printer.Mod` (still
+  expected to retain a couple of unrelated errors — a `<*STANDARD-*>`-style pragma and at least
+  one that looks like a single-quoted string literal, `string_literal` in `grammar.js` currently
+  only matches `"..."` not `'...'` even though `docs/language-baseline.md`'s lexical section
+  documents both as legal — that's a separate, not-yet-triaged gap, not M1.3 scope unless picked
+  up incidentally).
 - No changes outside `grammars/tree-sitter-oberon2/` — this task doesn't touch `crates/`.
 
 ## Context a fresh session needs
 
-- `docs/plan.md` — milestone breakdown and decisions D1-D8.
-- `docs/language-baseline.md` — the full EBNF; re-check the lexical section for how builtin
-  types (`SET`, `INTEGER`, etc.) are actually specified, not just the `Type` production quoted
-  above.
-- `docs/insights.md` round 4 — the `tree-sitter test --update` workflow for generating corpus
-  tests from real-shaped snippets without hand-writing trees, and the "widening every element to
-  optional can make a rule match the empty string" gotcha (run `tree-sitter generate`
-  immediately after any such change).
-- `docs/progress/m1-grammar.md` — M1.2b's exact spot-check results (which real corpus files
-  have which residual `ERROR` and why), so this round doesn't re-diagnose the same errors from
-  scratch.
+- `docs/plan.md` — D1 (lexical superset scope), D2 (base grammar fork), milestone breakdown.
+- `docs/language-baseline.md` — §3.6 comment nesting is normative; the "Comments" section has the
+  exact quoted wording to build the scanner against.
+- `docs/insights.md` round 1 — "Nested comments are normative Oberon-2, not a dialect quirk", the
+  file-count breakdown by corpus root.
+- `docs/insights.md` round 5 — the "misdiagnosed error" and "two shapes for the same syntax"
+  lessons; worth re-applying the same discipline (isolate the construct, check every rule that's
+  supposed to reach it) rather than assuming this milestone's scope is only the scanner file.
+- `docs/progress/m1-grammar.md` — M1.2c's exact spot-check results, so this round doesn't
+  re-diagnose the same residual errors from scratch.
 - `CLAUDE.md` — test-first rule and the end-of-round ritual.
 
 ## State of the tree
 
 - `grammars/tree-sitter-oberon2/grammar.js`: M1.1 base + M1.2a (receivers, forward decls,
-  `DEFINITION` header) + M1.2b (`WITH`, `LOOP`, `EXIT`, `RETURN` as statements, empty
-  statements, confirmed `CASE` label ranges). 27/27 `tree-sitter test` green.
-- Known, not-yet-fixed gap, same shape as the (now-fixed) statement one: `field_list_seq` (a
-  `RECORD`'s fields) rejects a trailing `";"` before `END` — flagged during M1.2a, still open,
-  out of scope for M1.2c unless picked up incidentally.
-- `queries/highlights.scm` (M1.5) not expected to need changes for M1.2c's new/confirmed node
-  kinds unless new keyword tokens are introduced (e.g. `kSet`, if that turns out to be needed)
-  — check after.
+  `DEFINITION` header) + M1.2b (`WITH`, `LOOP`, `EXIT`, `RETURN` as statements, empty statements)
+  + M1.2c (procedure types in formal params; `field_list_seq` trailing-`;` fix). 33/33
+  `tree-sitter test` green.
+- Known, not-yet-fixed gaps, out of scope for M1.3 unless picked up incidentally:
+  - `string_literal` regex only matches double-quoted strings (`"..."`), not single-quoted
+    (`'...'`) even though the EBNF's lexical section allows both — flagged during this round's
+    `Printer.Mod` spot-check, not yet confirmed as the actual cause (just a plausible one; verify
+    before fixing).
+- `queries/highlights.scm` (M1.5) not expected to need changes for M1.3's external-scanner-based
+  comment token, since the node kind name (`comment`) doesn't have to change — check after.
 - Rust workspace untouched since M0 — this task doesn't touch it.
 
-## After M1.2c
+## After M1.3
 
-M1.3 (external C scanner for nested comments — highest-risk item in M1, don't leave it last if
-time is short; the `MultiArrays.Mod` whole-file parse failure from M1.2b's spot-check is a ready
-real-world test case for it).
+M1 is then feature-complete against `docs/plan.md`'s decision D1 scope. Re-run the full corpus
+manifest / a full-corpus parse sweep (not just the five spot-check files used through M1.2) to
+get a real `ERROR`-free percentage before declaring M1 done and moving to M2 (lossless
+parse/serialize in `xoft-core`).

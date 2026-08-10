@@ -169,11 +169,17 @@ module.exports = grammar({
     base_type: $ => $.qualident,
 
     // field_list_seq = field_list {";" field_list}
-    field_list_seq: $ => seq(
-      $.field_list, repeat(seq(';', $.field_list))
+    // FieldList is itself optional in the EBNF ([...]), same shape as StatementSeq — the
+    // corpus relies on a trailing ";" before "END" (e.g. voc's Printer.Mod). Same two-branch
+    // fix as statement_seq: every branch must still consume at least one token, so the
+    // "totally empty" case is expressed by omitting field_list_seq at the call site
+    // (already optional($.field_list_seq) in record_type), not by this rule matching nothing.
+    field_list_seq: $ => choice(
+      seq($.field_list, repeat(seq(';', optional($.field_list)))),
+      repeat1(seq(';', optional($.field_list)))
     ),
 
-    // field_list = ident_list ":" type
+    // field_list = [ident_list ":" type]
     field_list: $ => seq(
       $.ident_list, ':', $.type
     ),
@@ -213,10 +219,14 @@ module.exports = grammar({
       $.formal_type
     ),
 
-    // formal_type = {"ARRAY" "OF"} qualident
+    // formal_type = {"ARRAY" "OF"} (qualident | procedure_type)
+    // The report's FPSection uses full Type (Qualident | ARRAY OF Type | RECORD... |
+    // POINTER TO Type | PROCEDURE [FormalPars]); this grammar's formal_type has always been
+    // narrower than that. Widened only for the case the corpus actually uses — a PROCEDURE
+    // type as a callback parameter (voc's MultiArrays.Mod) — not the full Type recursion.
     formal_type: $ => seq(
       repeat(seq($.kArray, $.kOf)),
-      $.qualident
+      choice($.qualident, $.procedure_type)
     ),
 
     // qualident = [ident "."] ident

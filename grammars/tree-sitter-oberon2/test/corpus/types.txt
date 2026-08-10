@@ -1,0 +1,239 @@
+======================
+Set As Array Element Type
+======================
+
+MODULE Types;
+  TYPE
+    Foo = ARRAY 8 OF SET;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (array_type
+            (kArray)
+            (length
+              (const_expression
+                (expression
+                  (simple_expression
+                    (term
+                      (factor
+                        (number
+                          (integer))))))))
+            (kOf)
+            (type
+              (qualident
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===================
+Is In Expression
+===================
+
+MODULE Types;
+  VAR x, y: INTEGER;
+BEGIN
+  IF x IS INTEGER THEN y := 1 END
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (variable_decls
+    (kVar)
+    (variable_decl
+      (ident_list
+        (ident_def
+          (ident))
+        (ident_def
+          (ident)))
+      (type
+        (qualident
+          (ident)))))
+  (kBegin)
+  (statement_seq
+    (statement
+      (if_statement
+        (kIf)
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (designator
+                  (qualident
+                    (ident))))))
+          (relation
+            (kIs))
+          (simple_expression
+            (term
+              (factor
+                (designator
+                  (qualident
+                    (ident)))))))
+        (kThen)
+        (statement_seq
+          (statement
+            (assignment
+              (designator
+                (qualident
+                  (ident)))
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (number
+                        (integer)))))))))
+        (kEnd))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+========================
+Open Array Formal Param
+========================
+
+MODULE Types;
+  PROCEDURE Foo(s: ARRAY OF CHAR; VAR t: ARRAY OF INTEGER);
+  BEGIN
+  END Foo;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (kArray)
+              (kOf)
+              (qualident
+                (ident))))
+          (fp_section
+            (kVar)
+            (ident)
+            (formal_type
+              (kArray)
+              (kOf)
+              (qualident
+                (ident))))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+Procedure Type As Field
+===========================
+
+MODULE Types;
+  TYPE
+    Callback = RECORD
+      f: PROCEDURE(s1, s2: SHORTINT): SHORTINT
+    END;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (record_type
+            (kRecord)
+            (field_list_seq
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident)))
+                (type
+                  (struct_type
+                    (procedure_type
+                      (kProcedure)
+                      (formal_params
+                        (fp_section
+                          (ident)
+                          (ident)
+                          (formal_type
+                            (qualident
+                              (ident))))
+                        (qualident
+                          (ident))))))))
+            (kEnd))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===============================
+Procedure Type As Formal Param
+===============================
+
+MODULE Types;
+  PROCEDURE Bar(f: PROCEDURE(s1, s2: SHORTINT): SHORTINT);
+  BEGIN
+  END Bar;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (procedure_type
+                (kProcedure)
+                (formal_params
+                  (fp_section
+                    (ident)
+                    (ident)
+                    (formal_type
+                      (qualident
+                        (ident))))
+                  (qualident
+                    (ident))))))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))

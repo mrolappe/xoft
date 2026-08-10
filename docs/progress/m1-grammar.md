@@ -118,7 +118,57 @@ a `<*STANDARD-*>` compiler pragma, a nested `(** ... **)` comment (M1.3 scope), 
 SET` (M1.2c scope, `SET` isn't a type yet), and a type-guard chain inside a larger expression
 that predates this round. No regressions, no new errors introduced by the statement work.
 
-## M1.2c / M1.3 — not started
+## M1.2c — expressions/types: IS, SET, open arrays, procedure types ✅ (round 5, 2026-08-10)
 
-See `NEXT.md` for the current task and `docs/insights.md` for the full list of gaps against the
-EBNF baseline these subtasks close.
+Confirmed-before-coding discipline (same as M1.2a/b) paid off again: three of the four items in
+`NEXT.md` needed zero grammar changes, only a corpus test each —
+
+- **`SET`** — not a grammar keyword at all (no `kSet` token exists), so it already lexes as a
+  plain `ident` and is covered by `type = qualident | struct_type`. `ARRAY 8 OF SET` parses
+  clean as-is.
+- **`IS` in expressions** — `relation` already included `$.kIs`; `x IS INTEGER` inside an `IF`
+  parses clean as-is.
+- **Open arrays in formal params** — `formal_type`'s `repeat(seq($.kArray, $.kOf))` prefix
+  already covers `ARRAY OF CHAR`-shaped parameters; parses clean as-is.
+
+One item needed an actual fix: **procedure types as formal parameters**. `procedure_type` was
+already wired into `struct_type` (so `PROCEDURE(...)` works fine as a `RECORD` field or a
+standalone `TYPE` declaration), but `formal_type` — the separate, narrower rule used specifically
+inside `fp_section` — only ever allowed `{"ARRAY" "OF"} qualident`, with no path to
+`struct_type` at all. Real usage confirmed in `voc/src/library/misc/MultiArrays.Mod` (ten
+`f: PROCEDURE(s1,s2:SHORTINT): SHORTINT`-shaped parameters). Fixed by widening `formal_type` to
+`{"ARRAY" "OF"} (qualident | procedure_type)` — the minimal change for what the corpus actually
+uses, not the EBNF's full `Type` recursion into `formal_type` (which would also add `RECORD`/
+`POINTER TO` as anonymous parameter types, not observed anywhere in the corpus).
+
+New corpus tests: `types.txt` (5 cases covering all four items, generated via `tree-sitter test
+--update` per the established workflow, read back to confirm zero `ERROR`/`MISSING` nodes).
+
+**Incidental pickup, flagged as fair game in `NEXT.md`'s "State of the tree" section:**
+`field_list_seq` (a `RECORD`'s fields) rejected a trailing `";"` before `END` — the same shape as
+the `statement_seq` gap fixed in M1.2b (`FieldList` is optional in the EBNF, same as
+`StatementSeq`). This turned out to be the *actual* cause of the one residual `ERROR` in
+`voc/v4/Printer.Mod` that M1.2b's notes attributed to `SET` ("`ARRAY 8 OF SET` (M1.2c scope, SET
+isn't a type yet)") — that diagnosis was wrong: isolating the field (`used: ARRAY 8 OF SET;`)
+showed `SET` parses fine on its own, and the error only appears when it's a `RECORD` field
+followed by a trailing `;` before `END`, which is exactly the field-list gap logged back in
+M1.2a's round-3 insights ("a second gap in the same shape as the already-known one"). Fixed with
+the identical two-branch `choice` pattern already proven for `statement_seq`. New corpus test:
+`records.txt` → "Record Trailing Semicolon".
+
+`tree-sitter test`: 33/33 green (27 before this round + 5 `types.txt` + 1 `records.txt`).
+
+Re-ran the M1.2b spot-check files:
+- `Printer.Mod` — the line-15 `ERROR` (the misattributed "SET" one) is gone; five unrelated,
+  pre-existing `ERROR` regions remain (a `<*STANDARD-*>`-style pragma, a nested comment, and a
+  few likely single-quoted-string / other lexical gaps — none touched by this round, none newly
+  introduced: both grammar changes this round are pure widenings via `choice`/`repeat1`, so they
+  cannot make previously-accepted input newly fail).
+- `MultiArrays.Mod` — still fails extensively on nested comments (M1.3 scope, expected per
+  `NEXT.md`); now additionally exercises the `formal_type` fix (10 `PROCEDURE(...)` parameters)
+  without contributing new errors of its own.
+- `Viewers.Mod` — unchanged from M1.2b (doesn't use any construct touched this round).
+
+## M1.3 — not started
+
+See `NEXT.md` for the current task.

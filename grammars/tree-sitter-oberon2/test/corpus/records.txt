@@ -23,9 +23,9 @@ END RecordType.
           (record_type
             (kRecord)
             (kEnd))))))
-    (module_footer
-      (kEnd)
-      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
 
 =====================
 Record Type Extension
@@ -55,9 +55,55 @@ END RecordType.
               (qualident
                 (ident)))
             (kEnd))))))
-    (module_footer
-      (kEnd)
-      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+==============================
+Record Trailing Semicolon
+==============================
+
+MODULE RecordType;
+  TYPE
+    Type4 = RECORD
+      name : STRING;
+      used : INTEGER;
+    END;
+END RecordType.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (record_type
+            (kRecord)
+            (field_list_seq
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident)))
+                (type
+                  (qualident
+                    (ident))))
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident)))
+                (type
+                  (qualident
+                    (ident)))))
+            (kEnd))))))
+  (module_footer
+    (kEnd)
+    (ident)))
 
 ==============================
 Record With Export and Private
@@ -104,6 +150,6 @@ END RecordType.
                   (qualident
                     (ident)))))
             (kEnd))))))
-    (module_footer
-      (kEnd)
-      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
