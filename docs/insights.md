@@ -248,3 +248,53 @@ plus symlinks (`parser.c`, `grammar.json`, `node-types.json`, `tree_sitter/`) po
 `gen-src/`. The symlinks are themselves tiny, real, trackable files — set up once, not
 regenerated per `tree-sitter generate` run, since they just point at paths whose contents change
 underneath them.
+
+## Round 8 — 2026-08-10
+
+### Spot-checks (3-5 files) and a full-corpus sweep (792 files) can disagree by 80 points
+
+M1.1 through M1.3's progress notes all read as "still one `ERROR` region" or "down from 46 to
+28" on the same handful of files, which reads like M1 is nearly done. The first full-corpus
+sweep this round put the real number at 15.78%. Depth on a few files (does *this* file's error
+count go down) and breadth across the corpus (does *this fraction of files* parse clean) are
+different measurements, and a milestone's exit criterion ("≥95% of corpus files") is a breadth
+number — a round of spot-checks alone cannot tell you how close you are to it, only whether the
+specific thing you just changed helped the specific files you tried it on. Build the breadth
+measurement (even a throwaway one) before trusting a "looks nearly done" impression from depth
+checks, especially right before a milestone's exit criterion is supposed to be evaluated.
+
+### A task's stated cause can be wrong even when its stated construct is right
+
+`NEXT.md` was correct that `INLINE` appears in the corpus and needed grammar attention, and
+correct that its concrete syntax "has to come from the corpus itself." It was wrong about what
+kind of thing `INLINE` is: `docs/language-baseline.md`'s dialect table called it "opaque token,
+contents unparsed," implying block syntax needing a scanner or special token rule (the same
+shape as the nested-comment/pragma work in M1.3). The corpus showed `SYSTEM.INLINE(...)` is an
+ordinary procedure call — no new grammar surface at all, just a lexer bug (hex literals) in a
+token it happens to use constantly. The instruction to "confirm the real syntax before writing a
+rule to swallow it" (already in `NEXT.md`) was exactly the right guard and paid off immediately —
+worth treating as the default move whenever a task brief characterizes an unconfirmed construct's
+*shape* (block vs. call vs. token), not just its existence.
+
+### A `token()` typo is invisible until you hunt for it — grep the keyword table when a common construct mass-fails
+
+`kElseif: $ => 'ELSEIF'` compiled clean, generated clean, and every existing test stayed green,
+because no test happened to exercise `ELSIF` (`docs/language-baseline.md`'s own spelling) at all
+— `tree-sitter test`'s 35/35 gave zero signal that anything was wrong. It only surfaced because
+the corpus sweep's failure list was dominated by a construct with no obvious single cause, which
+prompted grepping `grammar.js` for how `ELSIF` is actually spelled there. A keyword table is a
+good place to `grep` the source doc's reserved-word list against literally, once a mass-failure
+pattern doesn't point at anything more specific — it's a cheap check that a "why is *everything*
+failing" moment doesn't reach for by default.
+
+### A plausible root cause can be exactly wrong, and the disproof is cheap enough to always run
+
+`[0,0]`-to-EOF `ERROR` spans clustered suspiciously with `encoding: "high-bytes"` manifest
+entries (Latin-1 `©` in banner comments), and tree-sitter's CLI does always read UTF-8 — a clean
+mechanistic story. Adding transcoding to the sweep script and re-running was maybe five minutes
+of work and it changed zero files from fail to pass: every one of those files has a real syntax
+cause early on (this round's brace-annotation discovery, for one), and the Latin-1 byte was just
+incidentally nearby in the same banner-comment header most of these interface files share. Same
+lesson as round 5's and round 6's misattributed `ERROR` causes, generalized one step further:
+even a mechanistically-sound theory needs the "does fixing it change the count" check before it's
+trusted, not just theories that were guessed under time pressure.

@@ -74,3 +74,23 @@ own leading whitespace (`while (is_space(lexer->lookahead)) lexer->advance(lexer
 it's actually looking for. Confirmed via `tree-sitter parse --debug`, not guessed — the debug
 lex trace showing zero `consume character` lines for the failing `lex_external` call was the
 proof that it never even reached the whitespace, not that the whitespace confused it.
+
+## Round 8 — 2026-08-10
+
+### Hand-wrote an expected S-expression from memory instead of generating it, got the shape wrong
+
+Wrote the "Multi Digit Hex Literal" test's expected tree by hand (flat `(qualident (ident)
+(ident))` for `S.INLINE`, and `actual_params` wrapping `expression` nodes directly) based on
+guessing the shape from the rule names in `grammar.js`. `tree-sitter test` failed immediately —
+the real shape is `(designator (qualident (ident)) (selector (ident)))` for a dotted qualified
+name, and `actual_params` wraps its arguments in an `expression_list` node. Both were visible in
+neighboring tests in the same file (`statements.txt` already had a `selector`/`expression_list`
+example a few hundred lines up) but weren't checked before writing the new case by hand.
+
+**Mitigation:** established practice in this repo (see round 4/5's insights) is to generate the
+expected tree via `tree-sitter test --update` against real input and read it back, specifically
+to avoid this. Reverted to that for the fix. When hand-writing is unavoidable, grep the same test
+file for a structurally similar existing case (same rule combination) and copy its shape rather
+than reconstructing it from `grammar.js` rule definitions alone — the generated node shape
+depends on precedence/hiding choices in the grammar that aren't always obvious from the rule
+text.

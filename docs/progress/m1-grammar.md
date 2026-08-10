@@ -235,8 +235,85 @@ No `binding.gyp` changes needed (item 4 in `NEXT.md`'s task list) — `tree-sitt
 `tree-sitter test` compile `scanner.c` directly via the CLI's own `cc` invocation; this project
 still doesn't build a node addon, so there's nothing for `node-gyp` to pick up.
 
-## After M1.3
+## M1.4 — corpus sweep + `INLINE` triage ✅ (round 7, 2026-08-10)
 
-M1 is feature-complete against `docs/plan.md`'s D1 scope. Remaining before M1 is declared done:
-a full-corpus parse sweep (not just the three spot-check files used through M1.1–M1.3) to get a
-real `ERROR`-free percentage — see `NEXT.md`.
+Built `grammars/tree-sitter-oberon2/sweep_corpus.py` (throwaway per `NEXT.md`, committed
+anyway): reads `corpus/manifest.json`, runs `tree-sitter parse --quiet` per file (transcoding
+`encoding: "high-bytes"` entries from Latin-1 to UTF-8 into a temp file first — tree-sitter's
+CLI always reads UTF-8, and ~42% of the corpus, 330/792 files, is flagged high-bytes), reports
+the `ERROR`-free percentage and the failure list. First real number, not a 3-5-file spot-check:
+baseline **15.78%** (125/792) — far below the M1.2b/M1.2c/M1.3 spot-checks' implied health,
+because those rounds' "still has one `ERROR` region" framing measured depth on a handful of
+files, not breadth across the corpus.
+
+**`INLINE`'s premise was wrong — confirmed before coding, per the task's own instruction.**
+Grepping the corpus for real usage (`SYSTEM.INLINE`, not just the string `INLINE`) found it only
+in STJ-Oberon (`DISASS.MOD`, `RSRC.MOD`, `VDICONTR.MOD`, `OCSYMBOL.MOD`, `RSRC.DEF` — Oberon-A
+and AmigaOberon have none) and it is not block syntax at all: `S.INLINE(02F0EH,0206EH,...)` is an
+ordinary call to a pseudo-procedure `SYSTEM.INLINE`, taking machine-code words as normal
+`actual_params`. `docs/language-baseline.md`'s dialect table calling it "opaque token, contents
+unparsed" was an assumption made without checking the corpus (the doc itself admits this — "not
+in normative EBNF"). No grammar rule needed for `INLINE` itself.
+
+What actually blocked it, and three other real bugs, found via the sweep's failure list and
+fixed (all one-line, all root-cause, each got a new corpus test before the fix per `tree-sitter
+test`'s red→green):
+
+- **`kElseif` matched the literal string `'ELSEIF'`, not `'ELSIF'`** (`grammar.js`, keyword
+  table). `docs/language-baseline.md`'s reserved-word list (line 125) and EBNF (line 59) both
+  say `ELSIF`. This is Oberon-2's second-most-common control construct after plain `IF`/`ELSE`;
+  every `IF...ELSIF...` in the corpus was silently falling to `ERROR`. New test: `statements.txt`
+  "If Elsif". Impact: 15.78% → 17.93% (125 → 142 passing).
+- **Hex-integer literal token only matched one hex digit** — `integer` had
+  `token(seq(hex_digit, 'H'))` where the EBNF comment two lines above it (`digit {hex_digit}
+  "H"`) already specified the correct shape. `"3H"` parsed; `"02F0EH"` (any real address/mask/
+  opcode constant) didn't — column pointed straight at the second hex digit every time. This is
+  what was actually breaking `SYSTEM.INLINE(02F0EH,...)`: not missing block syntax, an unrelated
+  lexer bug in a token INLINE happens to use heavily. Fixed to `token(seq(digit,
+  repeat(hex_digit), 'H'))`. New test: `statements.txt` "Multi Digit Hex Literal" (the real
+  `S.INLINE(...)` shape, doubling as `INLINE`'s only needed corpus coverage). Impact: 17.93% →
+  21.21% (142 → 168 passing).
+- **`import` had no path for two AmigaOberon-only rename/re-export variants** — confirmed via
+  corpus grep, undocumented anywhere in `docs/language-baseline.md`: `IMPORT e * := Exec` (a
+  `*` re-export marker after the local alias, always paired with `:=`, never seen with plain
+  `:`) and `IMPORT e: Exec` (plain `:` as an alternate rename operator, seen in different
+  AmigaOberon files than the `*` marker — looks like two compiler-version dialects, not one).
+  Both confirmed absent from Oberon-A and STJ, which only ever use plain `:=`. Widened `import`
+  to `ident, optional('*'), optional(seq(choice(':=', ':'), ident))`. New tests: `module.txt`
+  "module import with re-export marker", "module import with colon rename". Impact: 21.21% →
+  21.97% (168 → 174 passing).
+
+`tree-sitter test`: 39/39 green (35 before this round + "If Elsif" + "Multi Digit Hex Literal" +
+2 import-variant cases).
+
+**Triaged, not fixed — each needs its own scoping decision, not a silent fold-in (same boundary
+`NEXT.md` set for the bracket-pragma item specifically, extended here to everything else this
+round's investigation turned up):**
+
+| Pattern | Corpus files (substring grep) | Notes |
+|---|---|---|
+| `<* ... *>` bracket pragmas | 212 (27% of corpus) | Different delimiter from the `(*$…*)` pragma M1.3 implemented; not in `docs/language-baseline.md` at all. Largest single remaining cluster — bigger than `INLINE` ever was. |
+| `STRUCT` record variant | 43 | C-interop struct-like type (AmigaOberon), e.g. `Point2D = STRUCT x,y: INTEGER; ... END`. Not `RECORD`, not in the baseline EBNF. |
+| `PROCEDURE ... *{base,-N}(...)` / `param{N}` brace annotations | 42 | Library-vector-offset metadata attached to AmigaOberon procedure/parameter declarations. Found while investigating a file whose failure looked like an encoding issue (see below) — it wasn't. |
+| `ASSEMBLER` blocks | 32 (STJ only) | A `PROCEDURE ... ASSEMBLER ... END`-shaped raw-assembly section, same conceptual family as `INLINE` but this one really does look like block syntax (unconfirmed — not minimized this round). |
+| `POINTER TO ARRAY OF Type` | not re-measured this round | Carried over from M1.3, still open. |
+| Single-quoted strings | not re-measured this round | Carried over from M1.2c, still unconfirmed as an actual failure cause. |
+
+**Dead end, worth recording so it isn't re-tried:** files flagged `encoding: "high-bytes"` in the
+manifest (Latin-1 banner comments, e.g. `©`) were suspected as a parse-collapse cause (`ERROR`
+spanning `[0,0]` to end-of-file) before transcoding was added to the sweep script. Transcoding
+changed **zero** files from fail to pass — every `[0,0]`-span failure has a real syntax cause
+early in the file (e.g. the brace-annotation pattern above), the Latin-1 byte was just
+incidentally nearby in a banner comment. Kept the transcoding fix anyway (it's still the
+correct, honest way to feed these files to a UTF-8-only parser, and 330/792 files carry the
+flag), but the theory that motivated it doesn't hold — see `docs/insights.md`.
+
+## After M1.4
+
+M1 is not at its ≥95% exit criterion (21.97%, corpus-wide, first honest measurement). The
+remaining gap is dominated by the bracket-pragma cluster (212 files) plus several newly-found
+AmigaOberon-specific extensions (`STRUCT`, brace annotations, `ASSEMBLER`) that together are a
+materially bigger scope than "add `INLINE`" ever was, and — per D8's 5%-of-corpus allowlist cap
+(≈40 files) — cannot be closed by allowlisting alone; most of this has to become grammar. Each
+needs a scoping decision (grammar addition vs. allowlist vs. explicitly out-of-D1-scope) before
+the next round picks one to implement — see `NEXT.md`.

@@ -388,6 +388,114 @@ END M.
     (ident)))
 
 ===================
+If Elsif
+===================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    IF x = 1 THEN
+      y := 1
+    ELSIF x = 2 THEN
+      y := 2
+    ELSE
+      y := 3
+    END
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (if_statement
+              (kIf)
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (designator
+                        (qualident
+                          (ident))))))
+                (relation)
+                (simple_expression
+                  (term
+                    (factor
+                      (number
+                        (integer))))))
+              (kThen)
+              (statement_seq
+                (statement
+                  (assignment
+                    (designator
+                      (qualident
+                        (ident)))
+                    (expression
+                      (simple_expression
+                        (term
+                          (factor
+                            (number
+                              (integer)))))))))
+              (kElseif)
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (designator
+                        (qualident
+                          (ident))))))
+                (relation)
+                (simple_expression
+                  (term
+                    (factor
+                      (number
+                        (integer))))))
+              (kThen)
+              (statement_seq
+                (statement
+                  (assignment
+                    (designator
+                      (qualident
+                        (ident)))
+                    (expression
+                      (simple_expression
+                        (term
+                          (factor
+                            (number
+                              (integer)))))))))
+              (kElse)
+              (statement_seq
+                (statement
+                  (assignment
+                    (designator
+                      (qualident
+                        (ident)))
+                    (expression
+                      (simple_expression
+                        (term
+                          (factor
+                            (number
+                              (integer)))))))))
+              (kEnd))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===================
 Case Label Range
 ===================
 
@@ -464,6 +572,71 @@ END M.
                               (number
                                 (integer))))))))))
               (kEnd))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===================
+Multi Digit Hex Literal
+===================
+
+MODULE M;
+  IMPORT S := SYSTEM;
+  PROCEDURE P;
+  BEGIN
+    S.INLINE(02F0EH,0206EH,00008H)
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (import_list
+    (kImport)
+    (import
+      (ident)
+      (ident)))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (procedure_call
+              (designator
+                (qualident
+                  (ident))
+                (selector
+                  (ident)))
+              (actual_params
+                (expression_list
+                  (expression
+                    (simple_expression
+                      (term
+                        (factor
+                          (number
+                            (integer))))))
+                  (expression
+                    (simple_expression
+                      (term
+                        (factor
+                          (number
+                            (integer))))))
+                  (expression
+                    (simple_expression
+                      (term
+                        (factor
+                          (number
+                            (integer)))))))))))
         (kEnd))
       (ident)))
   (module_footer

@@ -85,10 +85,14 @@ module.exports = grammar({
     ),
 
     // import = ident [":=" ident]
+    // AmigaOberon dialect extension (not in normative EBNF, confirmed via corpus):
+    // "*" re-export marker after the local alias, and ":" as an alternate
+    // rename operator alongside ":=".
     import: $ => seq(
       $.ident,
+      optional('*'),
       optional(seq(
-        ':=',
+        choice(':=', ':'),
         $.ident
       ))
     ),
@@ -530,7 +534,7 @@ module.exports = grammar({
     // integer = digit {digit} | digit {hex_digit} "H"
     integer: $ => choice(
       token(seq(digit, repeat(digit))),
-      token(seq(hex_digit, 'H'))
+      token(seq(digit, repeat(hex_digit), 'H'))
     ),
     
     // mathematical operators
@@ -573,7 +577,7 @@ module.exports = grammar({
     kWhile: $ => 'WHILE',
 
     kDefinition: $ => 'DEFINITION',
-    kElseif: $ => 'ELSEIF',
+    kElseif: $ => 'ELSIF',
     kImport: $ => 'IMPORT',
     kModule: $ => 'MODULE',
     kRecord: $ => 'RECORD',

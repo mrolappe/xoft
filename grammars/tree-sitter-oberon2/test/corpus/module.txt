@@ -56,3 +56,46 @@ END Hello.
   (module_footer
     (kEnd)
     (ident)))
+=====================================
+module import with re-export marker
+=====================================
+
+MODULE Hello;
+  IMPORT e * := Exec;
+END Hello.
+---
+
+(module 
+  (module_header
+    (kModule)
+    (ident)) 
+  (import_list
+    (kImport)
+    (import
+      (ident)
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=====================================
+module import with colon rename
+=====================================
+
+MODULE Hello;
+  IMPORT e: Exec;
+END Hello.
+---
+
+(module 
+  (module_header
+    (kModule)
+    (ident)) 
+  (import_list
+    (kImport)
+    (import
+      (ident)
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
