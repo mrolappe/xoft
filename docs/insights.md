@@ -387,3 +387,28 @@ constraints as this round, not a verified fact. And when a substring grep over f
 (comments, string bodies) feeds a "how common is this" number, strip the prose-bearing regions
 first — a `'quote'`-pairing count on raw text is mostly measuring apostrophes in English
 sentences, not the construct being searched for.
+
+## Round 12 — 2026-08-10
+
+### Reusing a rule across two enclosing contexts can create a GLR ambiguity tree-sitter names for you
+
+Splicing `definition_proc_decl` (previously only reachable inside `DEFINITION` modules) into
+`procedure_decls` (reachable inside plain `MODULE`s and nested procedure bodies) made
+`PROCEDURE ident ... ';'` ambiguous with the start of `procedure_decl` (`PROCEDURE ... ';'
+procedure_body ident`) — both share the exact same prefix, and nothing after the `';'` tells the
+parser with bounded lookahead which one it's in until it either finds a `procedure_body`'s
+`kEnd`/`ident` closing sequence or runs out of things that could be one. `tree-sitter generate`
+does not just fail on this — its error message names the two conflicting rules and prints the
+exact `conflicts: $ => [[...]]` line to add. Trust that message over trying to manually restructure
+the grammar to avoid the ambiguity; GLR resolving it at parse time (trying both, keeping the one
+that completes) is the intended mechanism, not a workaround.
+
+### A "files entirely matching pattern X" heuristic count is a floor, not the actual impact
+
+`NEXT.md` estimated 125 corpus files as "entirely bodiless declarations" (contains `PROCEDURE`,
+no `BEGIN`, no `STRUCT`) and flagged that this undercounts files mixing bodied/bodiless
+procedures or pairing `STRUCT` elsewhere with an unrelated bodiless procedure. The actual
+`sweep_corpus.py` delta was +45 passing files — real, but the heuristic gives no way to predict
+the number in advance beyond "some more than files matching cleanly." When a NEXT.md count is
+explicitly caveated as an undercount, don't round it up by guesswork either; just implement and
+re-measure, per the task's existing "before/after" instruction.

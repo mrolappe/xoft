@@ -36,6 +36,10 @@ module.exports = grammar({
 
   word: $ => $.ident,
 
+  // procedure_decl and definition_proc_decl share the "procedure_heading ';'" prefix;
+  // GLR resolves which one matched by whether a procedure_body actually follows.
+  conflicts: $ => [[$.procedure_decl, $.definition_proc_decl]],
+
   rules: {
 
     // module = "MODULE" ident ";"
@@ -130,9 +134,16 @@ module.exports = grammar({
       ))
     ),
 
-    // procedure_decls = (procedure_decl | forward_decl) ";"
-    procedure_decls: $ => seq(
-      choice($.procedure_decl, $.forward_decl), ';'
+    // procedure_decls = (procedure_decl | forward_decl) ";" | definition_proc_decl
+    // AmigaOberon dialect extension (not in normative EBNF, confirmed via corpus): a
+    // bodiless procedure heading (no "BEGIN...END", no "^" forward marker either) inside
+    // an ordinary MODULE, used by the Interfaces/*.mod system-call wrappers. Structurally
+    // identical to `definition_proc_decl` (normally only legal inside DEFINITION modules),
+    // so reused as-is rather than duplicating the node.
+    procedure_decls: $ => choice(
+      seq($.procedure_decl, ';'),
+      seq($.forward_decl, ';'),
+      $.definition_proc_decl
     ),
 
     // const_decl = ident_def "=" const_expresion

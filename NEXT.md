@@ -1,97 +1,82 @@
 # Next task
 
-**M1.4 continued — implement AmigaOberon's bodiless procedure declaration
-(`PROCEDURE Name *{base,-N}(params): RetType;` with no `BEGIN...END Name;` body).**
+**M1.4 continued — sample `sweep_corpus.py`'s remaining failures to find the next cluster, then
+implement it test-first.**
 
-Round 11 closed out the last two carried-over items (`POINTER TO ARRAY OF Type`, single-quoted
-strings). With the round 9/10 triage table now fully resolved, this round found the next cluster
-by sampling `sweep_corpus.py`'s remaining failures directly (not from a stale note) — see
-"How this was found" below for the reproduction steps a fresh session can repeat.
+Round 12 closed out the bodiless-procedure-heading task (AmigaOberon `Interfaces/*.mod`) with no
+follow-on candidate queued — same situation round 11 left round 12 in. This round starts cold:
+there is no known next construct, only a method for finding one.
 
 ## What's confirmed (do not re-derive, just verify before coding)
 
-- **Shape**: AmigaOberon's `Interfaces/*.mod` files (system-call wrapper modules, e.g. `Cia.mod`,
-  `Potgo.mod`, `Console.mod`) declare procedures as headers only, terminated by `;` with **no**
-  `BEGIN`/`END Name` body at all — not even an empty one. Real example (`Cia.mod`):
-  ```oberon
-  PROCEDURE AddICRVector *{base,- 6}(icrBit{0}    : SHORTINT;
-                                     interrupt{9} : e.InterruptPtr):e.InterruptPtr;
-  PROCEDURE RemICRVector *{base,-12}(icrBit{0}    : SHORTINT;
-                                     interrupt{9} : e.InterruptPtr);
-  ```
-  Note the `{base,-N}` vector-offset annotation (already handled, round 9) commonly co-occurs but
-  isn't the blocker — the missing body is.
-- **Not the same as `forward_decl`**: `grammar.js`'s existing `forward_decl` rule
-  (`"PROCEDURE" "^" ...`) requires a literal `^` marker. These declarations have no `^` — they're
-  a *third* procedure-declaration shape, structurally identical to `definition_proc_decl`
-  (`grammar.js` line 79, `procedure_heading ';'`, used today only inside `DEFINITION` modules) —
-  but appearing inside a plain `MODULE ... END`.
-- **Fix shape**: `procedure_decls` (`grammar.js` line ~134, currently
-  `choice($.procedure_decl, $.forward_decl), ';'`) needs a third alternative for a bodiless
-  heading — almost certainly reusable as `$.definition_proc_decl` itself (same rule, new call
-  site) rather than a new node, since the shape is identical. Confirm there's no semantic reason
-  the two need to stay visually distinct in the tree before reusing the node.
-- **Size**: a heuristic scan (see reproduction below) found **125 corpus files** that contain
-  `PROCEDURE` but no `BEGIN` at all and no `STRUCT` (STRUCT is a separate, already-deferred
-  cluster — see below) — i.e. modules that are *entirely* bodiless declarations. That heuristic
-  undercounts: files mixing bodied and bodiless procedures, or using `STRUCT` for another type
-  while also having a bodiless procedure, aren't in that count. Re-measure with `sweep_corpus.py`
-  before/after per usual practice, don't trust 125 as final.
-- **Do not confuse with `STRUCT`**: `BootBlock.mod` also whole-file-errors, but its cause is
-  `STRUCT` (already scoped out of M1 to Phase 2, round 9 decision) plus an unconfirmed `UNTRACED
-  POINTER TO Type` modifier — a different file, different cause, don't fix it as part of this
-  task. If `UNTRACED POINTER` turns out to be common on its own (not paired with `STRUCT`), that's
-  a separate future candidate, not investigated this round.
+- **Current state**: `sweep_corpus.py` passes 288/792 (36.36%), up from 243/792 (30.68%) last
+  round. M1's exit criterion is ≥95% (`docs/plan.md`, D8) — still far off, expect several more
+  rounds of clustering.
+- **`STRUCT` and `UNTRACED POINTER`** are already scoped **out** of M1 to Phase 2 (round 9
+  decision, reaffirmed round 11's triage table) — don't rediscover these as "new" findings and
+  don't fix them as part of whatever cluster you find this round unless the user explicitly
+  reopens the scoping decision.
+- **`procedure_decls` now has a `conflicts` declaration** (`grammar.js`, added round 12:
+  `conflicts: $ => [[$.procedure_decl, $.definition_proc_decl]]`) because `definition_proc_decl`
+  is reachable both inside `DEFINITION` modules and, since round 12, inside plain `MODULE`s via
+  `procedure_decls`. If a new task reuses another rule across two enclosing contexts that share a
+  token prefix, expect `tree-sitter generate` to report the same class of "Unresolved conflict"
+  error — its suggested fix (add a `conflicts` entry) is normally correct; see
+  `docs/insights.md` round 12 for why.
 
-## How this was found (reproduction, for a fresh session to trust this over re-deriving it)
+## How to find the next cluster (reproduction, same method as rounds 8–12)
 
 ```sh
 cd grammars/tree-sitter-oberon2
 python3 sweep_corpus.py -v > /tmp/sweep_v.txt   # -v prints tree-sitter's stdout per failure
-# Pick any short whole-file "(ERROR [0, 0] - [N, 0])" failure under an Interfaces/ path, e.g.
-# amiga-oberon-31/Interfaces/Cia.mod, transcode it to UTF-8 (corpus is Latin-1) and inspect:
+# Skim /tmp/sweep_v.txt for short, whole-file "(ERROR [0, 0] - [N, 0])" failures — those are
+# usually a single early construct the grammar doesn't know at all, easiest to isolate.
+# Pick a handful across different corpus roots (oberon-a, amiga-oberon-31, stj, voc, ...) so the
+# cluster you find isn't an artifact of one codebase's house style.
 python3 -c "
 from pathlib import Path
-p = Path('<absolute corpus path from roots.toml>/Interfaces/Cia.mod')
+p = Path('<absolute corpus path from roots.toml>/<relative path from sweep output>')
 Path('/tmp/x.mod').write_text(p.read_text(encoding='latin-1'), encoding='utf-8')
 "
-tree-sitter parse /tmp/x.mod   # shows procedure_heading nodes floating outside any
-                                # procedure_decl/procedure_decls wrapper — the tell.
+tree-sitter parse /tmp/x.mod   # find the ERROR node, read the surrounding source to see the
+                                # actual unhandled shape
 ```
 
-The 125-file estimate came from scanning `corpus/manifest.json` for files containing `PROCEDURE`
-but neither `BEGIN` nor `STRUCT` — a cheap proxy for "this file's failure is the bodiless-header
-shape, not something else." Re-derive if `manifest.json` or the corpus roots change.
+Corpus files are Latin-1; always transcode before feeding to `tree-sitter parse`, and strip
+comments/strings before grepping free-form corpus text for a construct's frequency (round 11's
+insight — apostrophes in comment prose swamp naive `'...'` pairing).
+
+Cross-check any candidate against `docs/language-baseline.md` (the normative Oberon-2 EBNF) and
+`docs/plan.md` D1 (lexical superset scope) before assuming it's in-scope for M1 — if it looks like
+a structural/semantic extension rather than a lexical one, flag the scoping question to the user
+the way round 9 did for `STRUCT`/`ASSEMBLER`, rather than deciding unilaterally.
 
 ## Definition of done
 
-- `tree-sitter test` still green, plus one new corpus case using `Cia.mod`'s exact
-  `PROCEDURE AddICRVector *{base,- 6}(...)...;` shape (or similarly minimal), filled via
-  `tree-sitter test --update` and read back to confirm no `ERROR`/`MISSING` nodes.
+- `tree-sitter test` still green, plus at least one new corpus case for whatever construct is
+  implemented, filled via `tree-sitter test --update` and read back to confirm no `ERROR`/
+  `MISSING` nodes.
 - Re-run `sweep_corpus.py` before/after, record the delta in `docs/progress/m1-grammar.md` (new
-  round section, same format as round 11's).
+  round section, same format as rounds 9–12).
 - Update `PROGRESS.md`'s round table and M1 line with the new percentage.
 - No changes outside `grammars/tree-sitter-oberon2/`.
 
 ## Context a fresh session needs
 
-- `docs/progress/m1-grammar.md`'s round 11 section — the corrected understanding of
-  `string_literal` (it's a general alternate-delimiter string, not a `CHAR`-only literal) and the
-  fully-resolved round 9/10 triage table, so this round doesn't re-open either.
-- `docs/insights.md` round 11 — a reminder to check `docs/language-baseline.md` itself (not a
-  prior round's summary of it) before asserting what "the report" does or doesn't allow, and to
-  strip comments/strings before grepping free-form corpus text for a construct's frequency.
+- `docs/progress/m1-grammar.md` round 12 — the `conflicts` mechanism and when it's needed.
+- `docs/insights.md` round 12 — the GLR-ambiguity takeaway and the "heuristic count is a floor,
+  not the actual impact" takeaway (don't try to predict `sweep_corpus.py`'s delta before
+  measuring it).
 - `docs/plan.md` — D1 (lexical superset scope), D8 (allowlist cap, done criterion), M1's exit
-  criterion (≥95%, currently 30.68%).
+  criterion (≥95%, currently 36.36%).
 
 ## State of the tree
 
-- `grammar.js`: `array_type`'s length list is now `optional(...)` (round 11); `string_literal` has
-  three alternatives — double-quoted, single-quoted, and the `digit {hexdigit} 'X'` char-code
-  form. `procedure_decls` still only accepts `procedure_decl` (heading + body) or `forward_decl`
-  (`PROCEDURE ^ ...`) — the bodiless-no-caret shape above is not yet supported.
-- `src/scanner.c`: unchanged this round — four external tokens (`COMMENT`, `PRAGMA`,
-  `BRACKET_PRAGMA`, `ASSEMBLER_BODY`). This task doesn't need a fifth; it's a plain grammar
-  widening like the two round-11 items.
-- `sweep_corpus.py`: unchanged. Baseline for the next round: **30.68% (243/792)**.
-- Rust workspace untouched since M0 — this task doesn't touch it.
+- `grammar.js`: `procedure_decls` is now `choice(seq(procedure_decl, ';'), seq(forward_decl,
+  ';'), definition_proc_decl)` — three procedure-declaration shapes (bodied, `^`-forward, and
+  bodiless-heading) all reachable inside a plain `MODULE`. A top-level `conflicts: $ => [...]`
+  field exists for the first time (round 12).
+- `src/scanner.c`: unchanged since round 10 — four external tokens (`COMMENT`, `PRAGMA`,
+  `BRACKET_PRAGMA`, `ASSEMBLER_BODY`).
+- `sweep_corpus.py`: unchanged. Baseline for the next round: **36.36% (288/792)**.
+- Rust workspace untouched since M0 — not expected to be touched by grammar-only rounds.

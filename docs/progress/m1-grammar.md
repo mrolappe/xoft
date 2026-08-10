@@ -506,3 +506,41 @@ M1 is still below its ≥95% exit criterion (30.68%). The triage table from roun
 fully resolved — everything is done or explicitly out of scope. Next round needs a fresh sweep of
 `sweep_corpus.py`'s remaining 549 failures to find the next cluster (no candidates queued in
 `NEXT.md` beyond this point).
+
+## M1.4 continued — AmigaOberon bodiless procedure heading ✅ (round 12, 2026-08-10)
+
+Confirmed `NEXT.md`'s shape claim against `Interfaces/Cia.mod`: a `PROCEDURE ... ;` heading with
+no `BEGIN...END Name` body at all, structurally identical to `definition_proc_decl` but appearing
+inside a plain `MODULE`. Reused `definition_proc_decl` as a third alternative rather than adding a
+new node, per `NEXT.md`'s suggestion — checked and found no semantic reason to keep the two node
+types visually distinct (both are exactly `procedure_heading ';'`, differing only in which
+enclosing construct permits them).
+
+**Grammar change:** `procedure_decls` changed from `seq(choice(procedure_decl, forward_decl),
+';')` to `choice(seq(procedure_decl, ';'), seq(forward_decl, ';'), definition_proc_decl)` —
+`definition_proc_decl` already bakes in its own trailing `';'`, so it couldn't be dropped into the
+old shared-`';'` wrapper without doubling the semicolon; moving the `';'` into the first two
+branches keeps the tree shape unchanged for those two (the `';'` is anonymous, invisible in the
+parse tree either way).
+
+**Mistake avoided, logged for the next round:** this reuse creates a genuine grammar ambiguity —
+after `procedure_heading ';'`, the parser can't know with bounded lookahead whether a
+`procedure_body` follows (making it a `procedure_decl`) or the declaration is already complete
+(making it a `definition_proc_decl`). `tree-sitter generate` caught this immediately with an
+"Unresolved conflict" error naming both rules and prescribing exactly the fix: add
+`conflicts: $ => [[$.procedure_decl, $.definition_proc_decl]]` at the grammar's top level (new
+field, placed next to `externals`/`extras`). This lets GLR explore both interpretations and keep
+whichever completes. No corpus test changes were needed for the two pre-existing branches.
+
+New corpus test: `procedures.txt` "Bodiless Procedure Heading", `Cia.mod`'s exact two-procedure
+shape (`AddICRVector`/`RemICRVector`, brace vector-offset and param-offset annotations included).
+Filled via `tree-sitter test --update`, read back to confirm no `ERROR`/`MISSING` nodes.
+`tree-sitter test`: 46/46 green (45 before this round + 1 new).
+
+**Impact:** `sweep_corpus.py` 30.68% → 36.36% (243 → 288 of 792 passing), +45 files — well above
+`NEXT.md`'s 125-file *upper-bound-on-whole-file* heuristic, confirming its own caveat that mixed
+bodied/bodiless files and files with unrelated `STRUCT` usage elsewhere were undercounted.
+
+M1 is still below its ≥95% exit criterion (36.36%). No candidates queued yet — next round should
+re-sample `sweep_corpus.py`'s remaining 504 failures fresh, same method as this round and round
+11.

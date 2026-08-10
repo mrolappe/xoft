@@ -97,3 +97,78 @@ END Procedures.
     (module_footer
       (kEnd)
       (ident)))
+
+=========================
+Bodiless Procedure Heading
+=========================
+
+MODULE Cia;
+  PROCEDURE AddICRVector *{base,- 6}(icrBit{0}    : SHORTINT;
+                                     interrupt{9} : e.InterruptPtr):e.InterruptPtr;
+  PROCEDURE RemICRVector *{base,-12}(icrBit{0}    : SHORTINT;
+                                     interrupt{9} : e.InterruptPtr);
+END Cia.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (vector_offset
+          (ident)
+          (integer))
+        (formal_params
+          (fp_section
+            (ident)
+            (param_offset
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))
+          (fp_section
+            (ident)
+            (param_offset
+              (integer))
+            (formal_type
+              (qualident
+                qualifier: (ident)
+                property: (ident))))
+          (qualident
+            qualifier: (ident)
+            property: (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (vector_offset
+          (ident)
+          (integer))
+        (formal_params
+          (fp_section
+            (ident)
+            (param_offset
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))
+          (fp_section
+            (ident)
+            (param_offset
+              (integer))
+            (formal_type
+              (qualident
+                qualifier: (ident)
+                property: (ident))))))))
+    (module_footer
+      (kEnd)
+      (ident)))
