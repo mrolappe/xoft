@@ -3,9 +3,14 @@ const
   digit = /[0-9]/,
   hex_digit = /[0-9A-F]/,
 
-  // string = """ {character} """ | digit {hex_digit} "X"
+  // string = '"' {char} '"' | "'" {char} "'" | digit {hex_digit} "X"
+  // The report allows either quote character to delimit a string (docs/language-baseline.md
+  // §3), not just double quotes — confirmed against real corpus usage (e.g. AmigaOberon's
+  // 'KICK'/'PREF' FourCC tags, Prefs.mod) which uses multi-character single-quoted strings,
+  // not just single-character CHAR literals.
   string_literal = choice(
     /"[^"\n]*"/,
+    /'[^'\n]*'/,
     seq(digit, repeat(hex_digit), 'X')
   ),
 
@@ -152,8 +157,13 @@ module.exports = grammar({
     ),
 
     // array_type = "ARRAY" length {"," length} "OF" type
+    // The length list is optional in practice: corpus files use a length-less
+    // `ARRAY OF Type` as a pointer's base type (e.g. `POINTER TO ARRAY OF INTEGER`),
+    // the same shorthand formal_type already has for formal parameters.
     array_type: $ => seq(
-      $.kArray, $.length, repeat(seq(',', $.length)), $.kOf, $.type
+      $.kArray,
+      optional(seq($.length, repeat(seq(',', $.length)))),
+      $.kOf, $.type
     ),
 
     // length = const_expression

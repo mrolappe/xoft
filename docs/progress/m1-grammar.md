@@ -452,3 +452,57 @@ M1 is still below its ≥95% exit criterion (29.29%). No more "still open, never
 items left — everything in the table is now either done, explicitly out of scope, or confirmed
 real and sized. Next round: implement `POINTER TO ARRAY OF Type` and/or single-quoted character
 literals, per `NEXT.md`.
+
+## M1.4 continued — `POINTER TO ARRAY OF Type` + single-quoted strings ✅ (round 11, 2026-08-10)
+
+Both items from the triage table implemented. Re-checked round 10's corpus counts and one of its
+claims before coding, per `NEXT.md`'s instruction not to trust the noisy grep blindly:
+
+- **`POINTER TO ARRAY OF Type`**: re-grepped, 39 files (not 36 — count drift, not a shape
+  change). Sampled 15 occurrences across `oberon-a` and `amiga-oberon-31`: always the same plain
+  shape, `POINTER TO ARRAY OF <qualident-or-basic-type>`, no length, no multi-dimension case. Confirms
+  round 10's read.
+- **Single-quoted strings**: round 10's claim that "the report's `string` production has no
+  single-quote form" is **wrong** — `docs/language-baseline.md` line 140 has always read
+  `string = '"' {char} '"' | "'" {char} "'".` (present since the file's first commit, checked via
+  `git log -p`). Round 10 apparently never checked the baseline doc against this specific claim.
+  Corpus evidence agrees with the baseline, not with round 10: stripping `(* ... *)` comments and
+  `"..."` strings first (to kill false positives from English contractions like "don't"/"it's" in
+  comment prose, which dominated a naive `'.'`-pairing grep), the real single-quoted literals in
+  code include multi-character strings — AmigaOberon FourCC tags (`'KICK'`, `'PREF'`, `'FONT'`,
+  ...) and format strings (`'%%%dld'`), not just single characters. So this is the *same* string
+  literal, alternate delimiter — not a separate `CHAR` literal type. Widened `string_literal`
+  in place rather than adding a new node.
+
+**Grammar changes**, test-first:
+
+- `grammar.js` `array_type`: `length` list wrapped in `optional(...)`, matching `formal_type`'s
+  existing length-less shorthand. No new external token — plain `choice`/`optional` widening.
+- `grammar.js` `string_literal`: added `/'[^'\n]*'/` as a third choice alternative, symmetric with
+  the existing `/"[^"\n]*"/` (any run of non-newline, non-delimiter chars). Both quote styles
+  still forbid embedding their own delimiter (matches the baseline's "opening quote must match
+  closing quote" note — no escaping, use the other quote char to embed one).
+
+New corpus tests: `types.txt` "Pointer To Length-Less Array Type" (`POINTER TO ARRAY OF CHAR`,
+from `ODT.mod`'s `Symbol` type) and `declarations.txt` "Single-Quoted String Constant"
+(`idKick* = 'KICK';`, from `BootBlock.mod`). Both filled via `tree-sitter test --update`, read
+back to confirm no `ERROR`/`MISSING` nodes. `tree-sitter test`: 45/45 green (43 before this
+round + 2 new).
+
+**Impact:** `sweep_corpus.py` 29.29% → 30.68% (232 → 243 of 792 passing), +11 files.
+
+**Triage table, updated:**
+
+| Pattern | Corpus files | Status |
+|---|---|---|
+| `<* ... *>` bracket pragmas | 212 | ✅ done (round 9) |
+| Brace annotations (`*{base,-N}` / `param{N}`) | 42 | ✅ done (round 9) |
+| `ASSEMBLER` blocks | 32 (STJ only) | ✅ done (round 10) |
+| `POINTER TO ARRAY OF Type` | 39 | ✅ done this round |
+| Single-quoted strings | not separately counted (subsumed into `string_literal`) | ✅ done this round |
+| `STRUCT` record variant | 43 | Scoped out of M1 — Phase 2 (`corpus/allowlist.toml` or a later milestone) |
+
+M1 is still below its ≥95% exit criterion (30.68%). The triage table from round 9/10 is now
+fully resolved — everything is done or explicitly out of scope. Next round needs a fresh sweep of
+`sweep_corpus.py`'s remaining 549 failures to find the next cluster (no candidates queued in
+`NEXT.md` beyond this point).

@@ -5,7 +5,7 @@ Overall state of the xoft MVP. One line per milestone; details in the per-phase 
 | Milestone | State | Detail |
 |---|---|---|
 | M0 — Foundations | ✅ done | [docs/progress/m0-foundations.md](docs/progress/m0-foundations.md) |
-| M1 — Grammar | 🟨 in progress (M1.1, M1.2a, M1.2b, M1.2c, M1.3, M1.5 done; M1.4 sweep tool + `INLINE` + bracket pragmas + brace annotations + `ASSEMBLER` done, ≥95% exit criterion not yet met — 29.29%, see below) | [docs/progress/m1-grammar.md](docs/progress/m1-grammar.md) |
+| M1 — Grammar | 🟨 in progress (M1.1, M1.2a, M1.2b, M1.2c, M1.3, M1.5 done; M1.4 sweep tool + `INLINE` + bracket pragmas + brace annotations + `ASSEMBLER` + `POINTER TO ARRAY OF Type` + single-quoted strings done, ≥95% exit criterion not yet met — 30.68%, see below) | [docs/progress/m1-grammar.md](docs/progress/m1-grammar.md) |
 | M2 — Core: lossless parse/serialize | ⬜ not started | — |
 | M3 — Diagnostics and CLI | ⬜ not started | — |
 | M4 — Corpus runner | ⬜ not started | — |
@@ -32,3 +32,4 @@ Cross-cutting records: [insights](docs/insights.md) · [errors and mitigations](
 | 8 | 2026-08-10 | M1.4 — corpus sweep script (`sweep_corpus.py`), first honest full-corpus number (15.78% → 21.97%); fixed `ELSIF`/`ELSEIF` keyword typo, hex-integer-literal token bug (this is what actually blocked `INLINE`, which needed no new grammar), two AmigaOberon `IMPORT` rename/re-export variants; triaged (not fixed) bracket pragmas (212 files), `STRUCT`, brace-annotated procedures, `ASSEMBLER` |
 | 9 | 2026-08-10 | M1.4 continued — scoping decision flagged to and resolved by user (`STRUCT` deferred to Phase 2, `ASSEMBLER` deferred pending scanner work); implemented `<* ... *>` bracket pragmas (third external scanner token) and AmigaOberon brace annotations (`vector_offset`, `param_offset`); 21.97% → 27.15% (174 → 215/792) |
 | 10 | 2026-08-10 | M1.4 continued — implemented `ASSEMBLER` blocks (fourth external scanner token, word-boundary raw-scan to `END`); 27.15% → 29.29% (215 → 232/792); confirmed the two carried-over items (`POINTER TO ARRAY OF Type`, single-quoted char literals) as real `ERROR`-causing gaps, not yet implemented |
+| 11 | 2026-08-10 | M1.4 continued — implemented `POINTER TO ARRAY OF Type` (length made optional in `array_type`) and single-quoted strings (widened `string_literal`, not a separate `CHAR` type — round 10's "no single-quote form in the report" claim was wrong, corrected against `docs/language-baseline.md` and corpus FourCC evidence); 29.29% → 30.68% (232 → 243/792); triage table from rounds 9/10 now fully resolved |

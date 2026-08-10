@@ -362,3 +362,28 @@ loop, so `mark_end` can never land at the scan's starting position. Worth treati
 check for any new "raw-scan to a delimiter" external token, not just this one: does the empty-body
 case (delimiter immediately at the start) produce a zero-length match, and if so, is that
 prevented structurally rather than by assuming the corpus never triggers it.
+
+## Round 11 — 2026-08-10
+
+### A round's own memory of "the report" is not the report — check the doc file, not the last summary
+
+Round 10's `docs/progress/m1-grammar.md` entry asserted "the report's `string` production ... has
+no single-quote form at all." `docs/language-baseline.md` — the actual normative EBNF this
+project keeps for exactly this purpose — has read `string = '"' {char} '"' | "'" {char} "'".`
+since its first commit (checked with `git log -p`). Round 10 never opened that file for this
+specific claim; it reasoned from a half-remembered shape of the classic Oberon report instead of
+the copy sitting in the repo. The corpus grep it ran to "confirm" the claim was also mis-read: a
+naive `'.'`-pairing regex is dominated by false positives from English contractions in comment
+prose ("don't", "it's"), and the few genuine single-char matches it sampled (`ORD('4')` etc.)
+were real but not representative — real *multi-character* single-quoted strings exist too
+(AmigaOberon FourCC tags like `'KICK'`, format strings like `'%%%dld'`), just outnumbered in a
+raw count by comment noise. Stripping `(* ... *)` comments and `"..."` strings out of the corpus
+text *before* grepping for `'...'` is what surfaces them.
+
+**Takeaway:** when a NEXT.md/progress-doc claim names a specific grammar production or file
+content ("the report has no X"), re-derive it from the primary doc/file before coding against it
+— a prior round's confident-sounding summary is a claim written under the same corpus-reading
+constraints as this round, not a verified fact. And when a substring grep over free-form prose
+(comments, string bodies) feeds a "how common is this" number, strip the prose-bearing regions
+first — a `'quote'`-pairing count on raw text is mostly measuring apostrophes in English
+sentences, not the construct being searched for.

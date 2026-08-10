@@ -21,9 +21,9 @@ END Variables.
       (type
         (qualident
           (ident)))))
-    (module_footer
-      (kEnd)
-      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
 
 ===============
 Array Variable
@@ -58,10 +58,10 @@ END Variables.
                       (factor
                         (number
                           (integer))))))))
-              (kOf)
-              (type
-                (qualident
-                  (ident)))))))
+            (kOf)
+            (type
+              (qualident
+                (ident)))))))
     (variable_decl
       (ident_list
         (ident_def
@@ -86,13 +86,13 @@ END Variables.
                       (factor
                         (number
                           (integer))))))))
-              (kOf)
-              (type
-                (qualident
-                  (ident))))))))
-    (module_footer
-      (kEnd)
-      (ident)))
+            (kOf)
+            (type
+              (qualident
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
 
 ===============
 Constants
@@ -111,17 +111,17 @@ END Constants.
   (const_decls
     (kConst)
     (const_decl
-        (ident_def
-          (ident))
-        (const_expression
-          (expression
-            (simple_expression
-              (term
-                (factor
-                  (string))))))))
-    (module_footer
-      (kEnd)
-      (ident)))
+      (ident_def
+        (ident))
+      (const_expression
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (string))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
 
 ===============
 Qualident Type
@@ -145,9 +145,9 @@ END QualidentType.
       (type
         (qualident
           (ident)))))
-    (module_footer
-      (kEnd)
-      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
 
 ================
 Array Type
@@ -186,10 +186,10 @@ END ArrayType.
                       (factor
                         (number
                           (integer))))))))
-              (kOf)
-              (type
-                (qualident
-                  (ident)))))))
+            (kOf)
+            (type
+              (qualident
+                (ident)))))))
     (type_decl
       (ident_def
         (ident))
@@ -213,10 +213,10 @@ END ArrayType.
                       (factor
                         (number
                           (integer))))))))
-              (kOf)
-              (type
-                (qualident
-                  (ident)))))))
+            (kOf)
+            (type
+              (qualident
+                (ident)))))))
     (type_decl
       (ident_def
         (ident))
@@ -350,6 +350,36 @@ END ArrayType.
                   (type
                     (qualident
                       (ident)))))))))))
-    (module_footer
-      (kEnd)
-      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===============
+Single-Quoted String Constant
+===============
+
+MODULE Constants;
+  CONST
+    idKick* = 'KICK';
+END Constants.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (const_decls
+    (kConst)
+    (const_decl
+      (ident_def
+        (ident)
+        (kStar))
+      (const_expression
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (string))))))))
+  (module_footer
+    (kEnd)
+    (ident)))

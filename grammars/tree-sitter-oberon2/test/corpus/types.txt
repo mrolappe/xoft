@@ -237,3 +237,39 @@ END Types.
   (module_footer
     (kEnd)
     (ident)))
+
+===============================
+Pointer To Length-Less Array Type
+===============================
+
+MODULE Types;
+  TYPE
+    Symbol = POINTER TO ARRAY OF CHAR;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (pointer_type
+            (kPointer)
+            (kTo)
+            (type
+              (struct_type
+                (array_type
+                  (kArray)
+                  (kOf)
+                  (type
+                    (qualident
+                      (ident)))))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
