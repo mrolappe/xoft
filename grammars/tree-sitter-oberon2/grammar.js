@@ -25,7 +25,7 @@ const
 module.exports = grammar({
   name: 'oberon2',
 
-  externals: $ => [$.comment, $.pragma, $.bracket_pragma],
+  externals: $ => [$.comment, $.pragma, $.bracket_pragma, $.assembler_body],
 
   extras: $ => [$.comment, $.pragma, $.bracket_pragma, /\s/],
 
@@ -428,7 +428,8 @@ module.exports = grammar({
       $.loop_statement,
       $.with_statement,
       $.exit_statement,
-      $.return_statement
+      $.return_statement,
+      $.assembler_statement
     ),
 
     // assignment = designator ":=" expression
@@ -542,6 +543,15 @@ module.exports = grammar({
       $.qualident, ':', $.qualident
     ),
 
+    // assembler_statement = "ASSEMBLER" assembler_body "END"
+    // STJ-Oberon dialect extension (not in normative EBNF, confirmed via corpus): raw M68K
+    // assembly embedded as a statement inside a procedure body. assembler_body is an opaque
+    // external token (src/scanner.c) since its content — opcodes, "(A0,D0.L)" addressing,
+    // "#" immediates, "D0-A7" register ranges — doesn't tokenize as Oberon.
+    assembler_statement: $ => seq(
+      $.kAssembler, $.assembler_body, $.kEnd
+    ),
+
     string: $ => token(string_literal),
     // number = integer | real
     number: $ => choice($.integer, token(real)),
@@ -602,6 +612,8 @@ module.exports = grammar({
     kPointer: $ => 'POINTER',
 
     kProcedure: $ => 'PROCEDURE',
+
+    kAssembler: $ => 'ASSEMBLER',
 
     ident: $ => token(identifier),
   }

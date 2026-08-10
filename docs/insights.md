@@ -345,3 +345,20 @@ annotations turned out cheap enough that "should we do this" barely needed askin
 `ASSEMBLER`'s confirmed raw-assembly-block shape immediately signalled "this needs scanner work,
 size it separately." The investigation step produces the options the scoping question offers,
 not just a yes/no on the item as originally described.
+
+## Round 10 — 2026-08-10
+
+### An external-scanner delimiter search needs an explicit "consumed at least one byte" guard
+
+Scanning for a closing `"END"` as a whole word (not a substring — `"SEND"`/`"ENDIF"` must not
+match) means checking that the byte before `E` isn't an identifier character. On the very first
+loop iteration that check trivially passes (nothing precedes the start of the scan), so if the
+body happens to be empty (`ASSEMBLER` immediately followed by `END`, not observed in this corpus
+but not ruled out by the grammar either), the scanner would call `mark_end` at the very position
+it started — a zero-length token. Tree-sitter external scanners that emit a zero-length token can
+put the parser in an infinite loop (same token offered forever, position never advances). Fixed
+by unconditionally consuming the first byte as body content before entering the boundary-checking
+loop, so `mark_end` can never land at the scan's starting position. Worth treating as a standing
+check for any new "raw-scan to a delimiter" external token, not just this one: does the empty-body
+case (delimiter immediately at the start) produce a zero-length match, and if so, is that
+prevented structurally rather than by assuming the corpus never triggers it.

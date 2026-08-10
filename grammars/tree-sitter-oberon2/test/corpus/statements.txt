@@ -642,3 +642,50 @@ END M.
   (module_footer
     (kEnd)
     (ident)))
+
+====================
+Assembler Statement
+====================
+
+MODULE M;
+  PROCEDURE Halt;
+  BEGIN
+    ASSEMBLER
+      MOVEM.L  D0-A7,registers
+    END;
+    Out.Ln;
+  END Halt;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (assembler_statement
+              (kAssembler)
+              (assembler_body)
+              (kEnd)))
+          (statement
+            (procedure_call
+              (designator
+                (qualident
+                  (ident))
+                (selector
+                  (ident))))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))

@@ -382,3 +382,73 @@ jump since the M1.4 hex-literal fix.
 M1 is still below its ≥95% exit criterion (27.15%). `ASSEMBLER` is now the largest unimplemented
 cluster with confirmed real syntax; `STRUCT` is explicitly out of scope. Next round: implement
 `ASSEMBLER` (needs scanner work) or re-measure the two carried-over items, per `NEXT.md`.
+
+## M1.4 continued — `ASSEMBLER` blocks ✅ (round 10, 2026-08-10)
+
+Confirmed the round-9 characterization against real files before coding: `HALT.MOD` and
+`QSORT.MOD` (STJ) both show `ASSEMBLER <raw M68K> END` used as a statement mid-`BEGIN...END`,
+never as a whole-body replacement. Checked the specific open question round 9 left ("could `END`
+appear inside operand text?") by reading every `ASSEMBLER` block in the corpus (32 occurrences,
+`grep -rn ASSEMBLER` under the `stj` root): the terminator is always a clean word-boundary `END`
+(sometimes followed by `(*ASSEMBLER*)` or `;`), and no M68K mnemonic or operand in the corpus
+contains `END` as a substring (checked `MATHLIB0.MOD`'s six blocks specifically, the file with
+the most occurrences). So no nesting, and a plain word-boundary scan is correct — no need for the
+comment scanner's depth-counting.
+
+**Grammar changes**, test-first:
+
+- `src/scanner.c`: fourth external token, `ASSEMBLER_BODY`. Same raw-scan-to-a-delimiter
+  technique as `COMMENT`/`PRAGMA`/`BRACKET_PRAGMA`, but scanning for a word-boundary `"END"`
+  instead of a fixed close-bracket string, via a small `is_ident_char` check on the byte before
+  and after each candidate `E`. Checked first, before the `'<'`/`'('` branches, since when
+  `valid_symbols[ASSEMBLER_BODY]` is true the parser is specifically expecting asm content right
+  after the `ASSEMBLER` keyword — content that may itself contain `(` (addressing syntax like
+  `(A0,D0.L)`) which must not be mistaken for a comment opener.
+- `grammar.js`: `$.assembler_body` added to `externals` only (not `extras` — unlike
+  comment/pragma/bracket-pragma, this token is never insertable anywhere, only in the one slot
+  between `kAssembler` and `kEnd`). New `kAssembler` keyword and `assembler_statement = "ASSEMBLER"
+  assembler_body "END"`, added to the `statement` choice. Reuses the existing `kEnd` for the
+  terminator — no new closing-keyword rule needed, matching how `loop_statement`/`with_statement`
+  already terminate.
+
+New corpus test: `statements.txt` "Assembler Statement", the exact `HALT.MOD` shape
+(`MOVEM.L D0-A7,registers`) as one statement of a two-statement body, confirming the parser
+resumes normal statement parsing right after the block. `tree-sitter test`: 43/43 green (42
+before this round + 1 new).
+
+**Impact:** `sweep_corpus.py` 27.15% → 29.29% (215 → 232 of 792 passing).
+
+**Fast pass on the two carried-over items** (per `NEXT.md`'s suggestion, cheap relative to
+`ASSEMBLER`'s scanner work) — both confirmed as real, isolated `ERROR`-causing gaps, not just
+"plausible":
+
+- **`POINTER TO ARRAY OF Type`** — isolating `TYPE P = POINTER TO ARRAY OF INTEGER;` alone
+  produces a real `ERROR` node (`array_type` requires a `length` between `ARRAY` and `OF`; only
+  `formal_type`, M1.2c, has the length-less shorthand, and only for formal parameters). 36 corpus
+  files use this shape.
+- **Single-quoted character literals** — isolating `x := ORD('4');` alone produces a real `ERROR`
+  node. The report's `string` production is `'"' {char} '"' | digit {hexdigit} 'X'`; there's no
+  single-quote form at all, so this is a genuine dialect extension (Pascal/Modula-style char
+  literals), not a variant spelling of something already supported. 127 corpus files use this
+  shape (grep for `'x'`-style substrings; noisy pattern, but the two files checked by hand
+  (`Tetriz.mod`, via `ORD('4')`/`ORD(' ')`/`ORD('q')`) are genuine char-literal usage, not
+  apostrophes in comments).
+
+Neither implemented this round — both are now confirmed real, still need scoping/implementation,
+see `NEXT.md`.
+
+**Triage table, updated:**
+
+| Pattern | Corpus files | Status |
+|---|---|---|
+| `<* ... *>` bracket pragmas | 212 | ✅ done (round 9) |
+| Brace annotations (`*{base,-N}` / `param{N}`) | 42 | ✅ done (round 9) |
+| `ASSEMBLER` blocks | 32 (STJ only) | ✅ done this round |
+| `STRUCT` record variant | 43 | Scoped out of M1 — Phase 2 (`corpus/allowlist.toml` or a later milestone) |
+| `POINTER TO ARRAY OF Type` | 36 | Confirmed real this round, not yet implemented |
+| Single-quoted character literals | 127 (noisy grep) | Confirmed real this round, not yet implemented |
+
+M1 is still below its ≥95% exit criterion (29.29%). No more "still open, never re-measured"
+items left — everything in the table is now either done, explicitly out of scope, or confirmed
+real and sized. Next round: implement `POINTER TO ARRAY OF Type` and/or single-quoted character
+literals, per `NEXT.md`.
