@@ -496,6 +496,92 @@ END M.
     (ident)))
 
 ===================
+AND/NOT Keyword Operators
+===================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    IF (x >= 0) AND NOT (x < 1) THEN
+      y := 1
+    END
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (if_statement
+              (kIf)
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (expression
+                        (simple_expression
+                          (term
+                            (factor
+                              (designator
+                                (qualident
+                                  (ident))))))
+                        (relation)
+                        (simple_expression
+                          (term
+                            (factor
+                              (number
+                                (integer)))))))
+                    (mul_operator
+                      (kAnd))
+                    (factor
+                      (kNot)
+                      (factor
+                        (expression
+                          (simple_expression
+                            (term
+                              (factor
+                                (designator
+                                  (qualident
+                                    (ident))))))
+                          (relation)
+                          (simple_expression
+                            (term
+                              (factor
+                                (number
+                                  (integer)))))))))))
+              (kThen)
+              (statement_seq
+                (statement
+                  (assignment
+                    (designator
+                      (qualident
+                        (ident)))
+                    (expression
+                      (simple_expression
+                        (term
+                          (factor
+                            (number
+                              (integer)))))))))
+              (kEnd))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===================
 Case Label Range
 ===================
 

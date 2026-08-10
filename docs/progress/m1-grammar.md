@@ -720,3 +720,47 @@ M1 is still below its ≥95% exit criterion (60.61%). Post-fix root breakdown of
 failures: `stj` 105, `amiga-oberon-31` 92, `oberon-a` 72, `voc` 43 — `oberon-a` dropped the most
 (was 118) but `stj` and `voc` are now the largest untouched territory relative to their size and
 haven't been sampled at all yet this round; worth checking those first next round.
+
+## M1.4 continued — STJ-Oberon `AND`/`NOT` keyword operators (round 17, 2026-08-10)
+
+First-ever sampling pass over `stj` (105 failures, largest untouched root). Bisected a minimal
+repro (`IF (byte >= 0) AND (byte < 20) THEN ... END`) down from a real failure in
+`DEBUGGER.PRJ/HEXDUMP.MOD`: the parser reported a confusing `MISSING "*"` at an unrelated column
+rather than a clean `ERROR` on `AND` itself — worth remembering as a signature: a `MISSING`
+node for an unrelated token, landing mid-expression, can mean the real problem is an operator
+the grammar has no rule for at all (GLR error recovery guesses a continuation using whatever
+token *is* known, producing a misleading location).
+
+Confirmed via corpus grep that STJ-Oberon's `.MOD` sources use `AND` and `NOT` as textual
+synonyms for `&` and `~` — not a replacement, since `&` (70 files) and `~` both still coexist
+with `AND` (55 files) in the same corpus. Cross-checked `docs/language-baseline.md`: neither
+`AND` nor `NOT` appears anywhere in the normative EBNF, so this is a genuine STJ dialect
+extension, not a missed baseline rule (round 13's distinction). Unlike `STRUCT`/`ASSEMBLER`
+(round 9), this isn't a structural extension needing a scoping conversation — it's a lexical
+keyword synonym for an operator the grammar already has, squarely inside D1's "lexical
+superset" scope, so implemented directly. Corroborating evidence: two `.OBJ` files in the corpus
+are STJ's own compiler binaries and happen to embed a plaintext keyword table (visible via
+`grep -a`) that lists `AND` and `NOT` alongside `DIV`, `MOD`, `NOT` as reserved words — confirms
+this is the compiler's own vocabulary, not a corpus-author idiosyncrasy.
+
+**Grammar change**, test-first (`tree-sitter test` red before, green after): `mul_operator`
+gained `$.kAnd` as a `choice` sibling of `'&'`; `factor` gained `seq($.kNot, $.factor)` as a
+sibling of the existing `seq('~', $.factor)`. Two new keyword tokens (`kAnd => 'AND'`,
+`kNot => 'NOT'`), no scanner changes. `tree-sitter generate` reported zero conflicts — tree-sitter's
+keyword-vs-identifier precedence handles `AND`/`NOT` automatically, no reserved-word list to
+maintain separately.
+
+New corpus test: `statements.txt` "AND/NOT Keyword Operators" (`IF (x >= 0) AND NOT (x < 1)
+THEN...`, exercises both new tokens together since the corpus commonly combines them). Filled
+via `tree-sitter test --update`, read back to confirm no `ERROR`/`MISSING` nodes.
+`tree-sitter test`: 57/57 green (56 before + 1 new).
+
+**Impact:** `sweep_corpus.py` 60.61% → 66.41% (480 → 526 of 792 passing), **+46 files**, all in
+`stj` (105 → 59 failing there) — confirms the fix was isolated to this one root, as expected for
+a dialect-specific keyword synonym.
+
+M1 is still below its ≥95% exit criterion (66.41%). Post-fix root breakdown: `amiga-oberon-31`
+92, `oberon-a` 72, `stj` 59, `voc` 43. `stj` still has the largest raw count of any root but is
+no longer the most *disproportionately* unsampled — `amiga-oberon-31` (92 failures, last
+dedicated round was round 12) and `voc` (43, never sampled) are the natural next candidates.
+`stj` itself likely has more clusters left (59 files) and could also be resampled fresh.

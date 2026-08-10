@@ -520,3 +520,36 @@ marks are alternatives in practice, never combined — confirmed by grep, zero f
 use both). Implemented as a second `optional($.kStar)` in `procedure_heading`, reusing the
 existing `kStar` token rather than inventing a new one — same lexeme, different grammar slot, no
 scanner or token changes needed.
+
+### A `MISSING` node at an unrelated column can mean "operator the grammar has no rule for at all"
+
+STJ-Oberon's `IF (byte >= 0) AND (byte < 20H) THEN ...` reported `(MISSING "*" [56, 18] -
+[56, 18])` — a column that, read literally, pointed at whitespace between `0)` and `AND`, nowhere
+near anything resembling a missing `*`. The real problem was that `AND` isn't a token the grammar
+knows anywhere, so GLR error recovery picked some plausible-looking continuation (inserting a
+virtual `*`) to keep going, and reported *that* location rather than the token it actually choked
+on. Bisecting a minimal repro (deleting clauses one at a time until the error disappeared) found
+the true cause faster than trusting the reported location. Worth remembering: an unexplained
+`MISSING` node whose named token doesn't obviously belong at that column is a cue to check for an
+entirely unhandled operator/keyword nearby, not to go looking for a subtle cardinality bug at the
+literal reported position (round 15's narrow-`ERROR`-on-known-keyword signature is a *different*
+case — that one does land where the real problem is).
+
+### A dialect's own compiled binaries can double as a source of truth for its keyword list
+
+Two `.OBJ` files in the `stj` corpus root (STJ-Oberon's own compiler binaries, `MAKE2PAR.OBJ`,
+`OCSTAT.OBJ`) embed a plaintext keyword/error-message table readable via `grep -a` — e.g.
+`... MOD NIL VAR CASE ... AND NOT ASSEMBLER FOR BY ...`. This confirmed `AND`/`NOT` are the
+compiler's own reserved words, not an idiosyncrasy of one corpus author's coding style, without
+needing a `.doc`/`.txt` manual (which `stj` doesn't have, per round 14/16's check). Worth grepping
+`.OBJ`/binary files in a corpus root with `-a` when a dialect has no manual — compiled tool
+binaries sometimes carry their own string tables as corroborating evidence.
+
+### Lexical keyword synonyms for an existing operator don't need a scoping conversation
+
+`STRUCT`/`ASSEMBLER` (round 9) needed a user decision because they're structural dialect
+extensions — a new type kind, a new statement form requiring scanner work. `AND`/`NOT` as textual
+alternatives to `&`/`~` are neither: same semantics, same grammar position, one new keyword token
+each, squarely inside D1's "lexical superset" scope. Implemented directly, same as round 13's
+`CASE...ELSE` (already-normative) — the distinguishing question is "does this need new structure
+or scanner work", not "is this dialect-specific".

@@ -402,16 +402,23 @@ module.exports = grammar({
     ),
 
     // mul_operator = "*" | "/" | "DIV" | "MOD" | "&"
+    // STJ-Oberon (Atari ST) also accepts "AND" as a textual synonym for "&" —
+    // confirmed via corpus (both spellings coexist in the same files) and the
+    // compiler's own embedded keyword table; a lexical dialect extension per
+    // D1, not a structural one, so no scoping question.
     mul_operator: $ => choice(
       $.kStar,
       $.kSlash,
       $.kDiv,
       $.kMod,
-      '&'
+      '&',
+      $.kAnd
     ),
 
     // factor = number | string | "NIL" | "TRUE" | "FALSE" |
     //          set | designator [actual_params] | "(" expression ")" | "~" factor
+    // STJ-Oberon also accepts "NOT" as a textual synonym for "~" (same corpus
+    // evidence as "AND" above, often used together).
     factor: $ => choice(
       $.number,
       $.string,
@@ -421,7 +428,8 @@ module.exports = grammar({
       $.set,
       seq($.designator, optional($.actual_params)),
       seq('(', $.expression, ')'),
-      seq('~', $.factor)
+      seq('~', $.factor),
+      seq($.kNot, $.factor)
     ),
 
     // designator = qualident {selector}
@@ -632,11 +640,13 @@ module.exports = grammar({
     kOr: $ => 'OR',
     kTo: $ => 'TO',
 
+    kAnd: $ => 'AND',
     kDiv: $ => 'DIV',
     kEnd: $ => 'END',
     kFor: $ => 'FOR',
     kMod: $ => 'MOD',
     kNil: $ => 'NIL',
+    kNot: $ => 'NOT',
     kVar: $ => 'VAR',
     kExit: $ => 'EXIT',
     kLoop: $ => 'LOOP',
