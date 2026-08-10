@@ -35,3 +35,19 @@ unchanged — the test would have passed on day one and stayed green through eve
 **Mitigation:** decision D4 replaces it with a byte-coverage assertion (every byte belongs to
 exactly one leaf or one trivia gap, zero `ERROR`/`MISSING`). When an acceptance criterion is
 written down, check what the laziest passing implementation would be before adopting it.
+
+## Round 4 — 2026-08-10
+
+### Widening every `statement_seq` element to `optional` broke `tree-sitter generate`
+
+Implementing the empty-statement fix literally as written in `NEXT.md` ("make each element of
+the sequence `optional($.statement)`") produced `statement_seq: seq(optional($.statement),
+repeat(seq(';', optional($.statement))))` — a rule that can match zero tokens, which
+`tree-sitter generate` rejects with "The rule ... matches the empty string" rather than a
+conflict or a silent wrong parse.
+
+**Mitigation:** run `tree-sitter generate` immediately after any change that adds `optional()`
+around every alternative/element of a rule, before writing tests against it — the failure mode
+is a hard generate error, not a subtle parse bug, so it's cheap to catch immediately and
+expensive to debug later if buried under other changes. See `docs/insights.md` round 4 for the
+`choice`-of-two-non-empty-branches fix.

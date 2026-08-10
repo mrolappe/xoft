@@ -261,16 +261,18 @@ module.exports = grammar({
       $.kProcedure, '^', optional($.receiver), $.ident_def, optional($.formal_params)
     ),
 
-    // procedure_body = declaration_seq ["BEGIN" statement_seq]
-    //                  ["RETURN" expression] "END"
+    // procedure_body = declaration_seq ["BEGIN" statement_seq] "END"
+    // RETURN is an ordinary statement (see `statement`), not modeled here —
+    // the report's "RETURN only at the end" restriction isn't reflected in
+    // the EBNF's Statement production and the corpus uses RETURN mid-body
+    // (early return inside IF branches).
     procedure_body: $ => seq(
-      //$.declaration_seq, 
+      //$.declaration_seq,
       optional($.const_decls),
       optional($.type_decls),
       optional($.variable_decls),
       repeat($.procedure_decls),
       optional(seq($.kBegin, optional($.statement_seq))),
-      optional(seq($.kReturn, $.expression)),
       $.kEnd
     ),
 
@@ -381,7 +383,9 @@ module.exports = grammar({
     ),
 
     // statement = assignment | procedure_call | if_statement | case_statement |
-    //              while_statement | repeat_statement | for_statement
+    //              while_statement | repeat_statement | for_statement |
+    //              loop_statement | with_statement | exit_statement |
+    //              return_statement
     statement: $ => choice(
       $.assignment,
       $.procedure_call,
@@ -389,7 +393,11 @@ module.exports = grammar({
       $.case_statement,
       $.while_statement,
       $.repeat_statement,
-      $.for_statement
+      $.for_statement,
+      $.loop_statement,
+      $.with_statement,
+      $.exit_statement,
+      $.return_statement
     ),
 
     // assignment = designator ":=" expression
@@ -403,9 +411,16 @@ module.exports = grammar({
     ),
 
     // statement_seq = statement {";" statement}
-    statement_seq: $ => seq(
-      $.statement,
-      repeat(seq(';', $.statement))
+    // Statement is itself optional in the EBNF ([...]), so every element of
+    // the sequence may be empty — an empty statement isn't a kind of
+    // statement, it's the absence of one, so it isn't its own node kind.
+    // (statement_seq itself must still consume at least one token — a
+    // wholly empty sequence is expressed by omitting it at the call site,
+    // e.g. `optional($.statement_seq)` — tree-sitter rejects any rule that
+    // can match the empty string.)
+    statement_seq: $ => choice(
+      seq($.statement, repeat(seq(';', optional($.statement)))),
+      repeat1(seq(';', optional($.statement)))
     ),
 
     // if_statement = "IF" expression "THEN" statement_seq
@@ -465,6 +480,37 @@ module.exports = grammar({
       $.kDo, optional($.statement_seq), $.kEnd
     ),
 
+    // loop_statement = "LOOP" statement_seq "END"
+    loop_statement: $ => seq(
+      $.kLoop, optional($.statement_seq), $.kEnd
+    ),
+
+    // exit_statement = "EXIT"
+    exit_statement: $ => $.kExit,
+
+    // return_statement = "RETURN" [expression]
+    return_statement: $ => seq(
+      $.kReturn, optional($.expression)
+    ),
+
+    // with_statement = "WITH" guard "DO" statement_seq
+    //                  {"|" guard "DO" statement_seq}
+    //                  ["ELSE" statement_seq] "END"
+    with_statement: $ => seq(
+      $.kWith, $.with_arm, repeat(seq('|', $.with_arm)),
+      optional(seq($.kElse, optional($.statement_seq))),
+      $.kEnd
+    ),
+
+    with_arm: $ => seq(
+      $.guard, $.kDo, optional($.statement_seq)
+    ),
+
+    // guard = qualident ":" qualident
+    guard: $ => seq(
+      $.qualident, ':', $.qualident
+    ),
+
     string: $ => token(string_literal),
     // number = integer | real
     number: $ => choice($.integer, token(real)),
@@ -497,6 +543,9 @@ module.exports = grammar({
     kMod: $ => 'MOD',
     kNil: $ => 'NIL',
     kVar: $ => 'VAR',
+    kExit: $ => 'EXIT',
+    kLoop: $ => 'LOOP',
+    kWith: $ => 'WITH',
 
     kCase: $ => 'CASE',
     kElse: $ => 'ELSE',

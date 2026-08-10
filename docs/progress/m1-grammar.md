@@ -69,7 +69,56 @@ alone, out of scope for this task):
 - A forward decl lifted verbatim from `LTL.PRJ/CHATIO.MOD` (`PROCEDURE^ KeyPressed*() :
   BOOLEAN;`) parses clean once isolated from that file's M1.2b-scope statement gaps.
 
-## M1.2b / M1.2c / M1.3 — not started
+## M1.2b — statements: WITH, LOOP, EXIT, RETURN, empty statements ✅ (round 4, 2026-08-10)
+
+Five changes to `grammar.js`, all in `grammars/tree-sitter-oberon2/`:
+
+- **Empty statements** — `statement_seq` was `$.statement, repeat(seq(';', $.statement))`
+  (every element mandatory). Widening each element to `optional($.statement)` alone makes the
+  whole rule able to match the empty string, which `tree-sitter generate` rejects outright
+  ("rule matches the empty string"). Fixed with a two-branch `choice`: `seq($.statement,
+  repeat(seq(';', optional($.statement))))` for sequences that start with a real statement
+  (covers the trailing-`;`-before-`END` case), or `repeat1(seq(';', optional($.statement)))`
+  for sequences that are only semicolons (`BEGIN ; END`). Either branch always consumes at
+  least one token, so the empty case is expressed the correct way — by omitting the whole
+  `statement_seq` at the call site (`optional($.statement_seq)`, already how every caller
+  invokes it), not by the rule matching nothing itself.
+- **`LOOP StatementSeq END`**, **`EXIT`** — new `loop_statement` and `exit_statement` rules,
+  added to the `statement` choice. Both confirmed against real usage: `EXIT` nested inside an
+  inner `LOOP`'s `IF` (Oberon-A `Misc/HexConvert.mod`), which only works once `EXIT` is a
+  statement in its own right rather than needing special-casing.
+- **`RETURN [Expr]`** — added as a general `return_statement` in the `statement` choice, and
+  **removed** the hardcoded `optional(seq($.kReturn, $.expression))` that `procedure_body` had
+  tacked on after its `statement_seq`. The task brief flagged this as a genuine choice point
+  ("keep both, or replace"); grepping the corpus first settled it — `Oberon-A/source/ol/
+  OLPrefsStrings.mod:157-160` has `RETURN` as the last statement of *both* branches of an `IF`,
+  i.e. mid-body, not at the textual end of the procedure. The report's "`RETURN` only once, at
+  the end" restriction isn't in the EBNF's `Statement` production at all (confirmed against
+  `docs/language-baseline.md`'s `ProcDecl`, which is just `DeclSeq [BEGIN StatementSeq] END
+  ident` — no separate `RETURN` slot), so the old hardcoded field was modeling a restriction
+  the grammar was never asked to enforce. One general statement replaces it cleanly.
+- **`WITH Guard DO StatementSeq {"|" Guard DO StatementSeq} [ELSE StatementSeq] END`** — new
+  `with_statement` (repeated `with_arm = guard kDo optional(statement_seq)`, joined by `"|"`)
+  plus `guard = qualident ":" qualident`. Confirmed against real multi-arm usage in `voc`'s
+  `MultiArrays.Mod` (`WITH A: SIntArray DO ... ELSE HALT(100) END`, nested two deep in
+  `AllSInt2`) and Oberon-A's `Viewers.Mod`.
+- **`CASE` label ranges** — already implemented before this round (`label_range = label [".."
+  label]`, in place since M1.1). Confirmed still correct against real usage (`voc`'s
+  `v4/Printer.Mod`, `| 65..90: Ch(fontR, CHR(m))`) rather than re-derived; no grammar change
+  needed, just a corpus test added.
+
+New corpus tests: `statements.txt` (7 cases, generated via `tree-sitter test --update` from
+real-shaped snippets, then read back to confirm no `ERROR` nodes and sane tree shapes before
+trusting the auto-fill). `tree-sitter test`: 27/27 green (20 before this round + 7 new).
+
+Spot-checked against five real corpus files end to end (`HexConvert.mod`, `Viewers.Mod`,
+`MultiArrays.Mod`, `OLPrefsStrings.mod`, `Printer.Mod`) — each still has exactly one `ERROR`
+region, same as before this round's changes, and each is confirmed unrelated to statements:
+a `<*STANDARD-*>` compiler pragma, a nested `(** ... **)` comment (M1.3 scope), `ARRAY 8 OF
+SET` (M1.2c scope, `SET` isn't a type yet), and a type-guard chain inside a larger expression
+that predates this round. No regressions, no new errors introduced by the statement work.
+
+## M1.2c / M1.3 — not started
 
 See `NEXT.md` for the current task and `docs/insights.md` for the full list of gaps against the
 EBNF baseline these subtasks close.

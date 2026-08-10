@@ -1,0 +1,471 @@
+=================
+Empty Statements
+=================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    Out.Ln;
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (procedure_call
+              (designator
+                (qualident
+                  (ident))
+                (selector
+                  (ident))))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=====================
+Bare Empty Statement
+=====================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    ;
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=================
+Loop And Exit
+=================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    LOOP
+      IF x = 1 THEN EXIT END;
+      y := y + 1
+    END
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (loop_statement
+              (kLoop)
+              (statement_seq
+                (statement
+                  (if_statement
+                    (kIf)
+                    (expression
+                      (simple_expression
+                        (term
+                          (factor
+                            (designator
+                              (qualident
+                                (ident))))))
+                      (relation)
+                      (simple_expression
+                        (term
+                          (factor
+                            (number
+                              (integer))))))
+                    (kThen)
+                    (statement_seq
+                      (statement
+                        (exit_statement
+                          (kExit))))
+                    (kEnd)))
+                (statement
+                  (assignment
+                    (designator
+                      (qualident
+                        (ident)))
+                    (expression
+                      (simple_expression
+                        (term
+                          (factor
+                            (designator
+                              (qualident
+                                (ident)))))
+                        (add_operator
+                          (kPlus))
+                        (term
+                          (factor
+                            (number
+                              (integer)))))))))
+              (kEnd))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===============
+With Statement
+===============
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    WITH v: Viewer DO
+      v.state := 0
+    ELSE
+      HALT(100)
+    END
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (with_statement
+              (kWith)
+              (with_arm
+                (guard
+                  (qualident
+                    (ident))
+                  (qualident
+                    (ident)))
+                (kDo)
+                (statement_seq
+                  (statement
+                    (assignment
+                      (designator
+                        (qualident
+                          (ident))
+                        (selector
+                          (ident)))
+                      (expression
+                        (simple_expression
+                          (term
+                            (factor
+                              (number
+                                (integer))))))))))
+              (kElse)
+              (statement_seq
+                (statement
+                  (procedure_call
+                    (designator
+                      (qualident
+                        (ident)))
+                    (actual_params
+                      (expression_list
+                        (expression
+                          (simple_expression
+                            (term
+                              (factor
+                                (number
+                                  (integer)))))))))))
+              (kEnd))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+With Statement Multi Arm
+=========================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    WITH A: SIntArray DO
+      Foo(A)
+    | B: IntArray DO
+      Bar(B)
+    END
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (with_statement
+              (kWith)
+              (with_arm
+                (guard
+                  (qualident
+                    (ident))
+                  (qualident
+                    (ident)))
+                (kDo)
+                (statement_seq
+                  (statement
+                    (procedure_call
+                      (designator
+                        (qualident
+                          (ident)))
+                      (actual_params
+                        (expression_list
+                          (expression
+                            (simple_expression
+                              (term
+                                (factor
+                                  (designator
+                                    (qualident
+                                      (ident)))))))))))))
+              (with_arm
+                (guard
+                  (qualident
+                    (ident))
+                  (qualident
+                    (ident)))
+                (kDo)
+                (statement_seq
+                  (statement
+                    (procedure_call
+                      (designator
+                        (qualident
+                          (ident)))
+                      (actual_params
+                        (expression_list
+                          (expression
+                            (simple_expression
+                              (term
+                                (factor
+                                  (designator
+                                    (qualident
+                                      (ident)))))))))))))
+              (kEnd))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===================
+Return Mid Body
+===================
+
+MODULE M;
+  PROCEDURE P (): INTEGER;
+  BEGIN
+    IF x = 1 THEN
+      RETURN 1
+    ELSE
+      RETURN 0
+    END
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident))
+        (formal_params
+          (qualident
+            (ident))))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (if_statement
+              (kIf)
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (designator
+                        (qualident
+                          (ident))))))
+                (relation)
+                (simple_expression
+                  (term
+                    (factor
+                      (number
+                        (integer))))))
+              (kThen)
+              (statement_seq
+                (statement
+                  (return_statement
+                    (kReturn)
+                    (expression
+                      (simple_expression
+                        (term
+                          (factor
+                            (number
+                              (integer)))))))))
+              (kElse)
+              (statement_seq
+                (statement
+                  (return_statement
+                    (kReturn)
+                    (expression
+                      (simple_expression
+                        (term
+                          (factor
+                            (number
+                              (integer)))))))))
+              (kEnd))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===================
+Case Label Range
+===================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    CASE x OF
+      65..90: y := 1
+    | 91: y := 2
+    END
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (case_statement
+              (kCase)
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (designator
+                        (qualident
+                          (ident)))))))
+              (kOf)
+              (case_clause
+                (case_label_list
+                  (label_range
+                    (label
+                      (integer))
+                    (label
+                      (integer))))
+                (statement_seq
+                  (statement
+                    (assignment
+                      (designator
+                        (qualident
+                          (ident)))
+                      (expression
+                        (simple_expression
+                          (term
+                            (factor
+                              (number
+                                (integer))))))))))
+              (case_clause
+                (case_label_list
+                  (label_range
+                    (label
+                      (integer))))
+                (statement_seq
+                  (statement
+                    (assignment
+                      (designator
+                        (qualident
+                          (ident)))
+                      (expression
+                        (simple_expression
+                          (term
+                            (factor
+                              (number
+                                (integer))))))))))
+              (kEnd))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))

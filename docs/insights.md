@@ -106,6 +106,43 @@ list-like productions (`FieldList`, `StatementSeq`, `DeclSeq`, `CaseLabelList`, 
 optional-trailing-separator shape in one pass when M1.2b picks this up, rather than
 rediscovering each instance one corpus file at a time.
 
+### `tree-sitter test --update` is safe to trust for generating corpus tests, if read back once
+
+Writing new corpus test cases by hand (predicting the exact parenthesized tree tree-sitter will
+produce) is slow and error-prone for anything beyond a trivial rule. Writing just the title and
+source, with a placeholder `(module)` as the expected tree, then running `tree-sitter test
+--update -i <pattern>`, fills in the real tree from the real parser. The one thing this doesn't
+catch on its own: an `--update` run "succeeds" even if the actual tree contains an `ERROR` node
+— the tool is recording what the grammar produces, not asserting it's correct. Read the
+generated tree back once (grep for `ERROR`, and glance at whether the node shape matches intent)
+before trusting it as a regression baseline.
+
+### A rule that widens every element to `optional` can start matching the empty string
+
+Fixing the empty-statement gap by writing `statement_seq: seq(optional($.statement),
+repeat(seq(';', optional($.statement))))` (the literal reading of "each element is optional")
+compiles to a rule that *can* match zero tokens — and `tree-sitter generate` refuses to build
+any rule that can match the empty string, even one only ever used inside an outer `optional()`.
+The fix is a two-branch `choice`: one branch anchored on a real `$.statement`, the other
+`repeat1` over `;`-separated empty slots, so every branch consumes at least one token. The
+general lesson: "make every element optional" and "make the whole rule able to match nothing"
+are different asks, and only the caller (`optional($.statement_seq)`) needs the latter — an
+inner rule that can match empty is a tree-sitter error regardless of how it is used.
+
+### The already-known "RETURN only at the end" restriction wasn't real once checked
+
+`procedure_body` had a hardcoded `optional(seq($.kReturn, $.expression))` appended after
+`statement_seq`, modeling the classic Oberon restriction that `RETURN` appears once, at the
+textual end of a procedure. Grepping the corpus for `RETURN` before assuming this held (same
+discipline as M1.2a's `DEFINITION` lesson) found `Oberon-A/source/ol/OLPrefsStrings.mod:157-160`
+— an early-return pattern, `RETURN` as the last statement of *each* branch of an `IF`, which is
+mid-body, not end-of-procedure. Cross-checking `docs/language-baseline.md`'s `ProcDecl`
+production confirmed the EBNF never had a separate `RETURN` slot in the first place — it's just
+`DeclSeq [BEGIN StatementSeq] END ident`, and `RETURN [Expr]` is one of `Statement`'s ordinary
+alternatives. The hardcoded field in `procedure_body` was modeling a restriction nothing in
+this project's actual grammar asked for; removing it and adding `RETURN` as a normal statement
+was strictly simpler *and* more correct, not a tradeoff.
+
 ### Two forks of the same grammar still diverge on field names
 
 `geekstakulus/tree-sitter-oberon-07`'s `queries/highlights.scm` cannot be copied verbatim onto
