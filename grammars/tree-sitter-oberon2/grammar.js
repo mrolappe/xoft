@@ -36,21 +36,40 @@ module.exports = grammar({
     // declaration_seq
     // ["BEGIN" statement_seq]
     // "END" ident "."
-    module: $ => seq(
-      $.module_header,
-      optional($.import_list),
-      optional($.const_decls),
-      optional($.type_decls),
-      optional($.variable_decls),
-      repeat($.procedure_decls),
-      optional(seq(
-        $.kBegin,
-        optional($.statement_seq)
-      )),
-      $.module_footer
+    //
+    // definition module (STJ-Oberon) = "DEFINITION" ident ";"
+    // [import_list] declaration_seq "END" ident "."
+    // — an interface: procedure declarations are headings only, no body.
+    module: $ => choice(
+      seq(
+        $.module_header,
+        optional($.import_list),
+        optional($.const_decls),
+        optional($.type_decls),
+        optional($.variable_decls),
+        repeat($.procedure_decls),
+        optional(seq(
+          $.kBegin,
+          optional($.statement_seq)
+        )),
+        $.module_footer
+      ),
+      seq(
+        $.definition_header,
+        optional($.import_list),
+        optional($.const_decls),
+        optional($.type_decls),
+        optional($.variable_decls),
+        repeat($.definition_proc_decl),
+        $.module_footer
+      )
     ),
     module_header: $ => seq($.kModule, $.ident, ';'),
+    definition_header: $ => seq($.kDefinition, $.ident, ';'),
     module_footer: $ => seq($.kEnd, $.ident, '.'),
+
+    // definition_proc_decl = procedure_heading ";"
+    definition_proc_decl: $ => seq($.procedure_heading, ';'),
 
     // import_list = "IMPORT" import {"," import}
     import_list: $ => seq(
@@ -100,9 +119,9 @@ module.exports = grammar({
       ))
     ),
 
-    // procedure_decls = procedure_decl ";"
+    // procedure_decls = (procedure_decl | forward_decl) ";"
     procedure_decls: $ => seq(
-      $.procedure_decl, ';'
+      choice($.procedure_decl, $.forward_decl), ';'
     ),
 
     // const_decl = ident_def "=" const_expresion
@@ -227,9 +246,19 @@ module.exports = grammar({
       $.procedure_heading, ';', $.procedure_body, $.ident
     ),
 
-    // procedure_heading = "PROCEDURE" ident_def [formal_params]
+    // procedure_heading = "PROCEDURE" [receiver] ident_def [formal_params]
     procedure_heading: $ => seq(
-      $.kProcedure, $.ident_def, optional($.formal_params)
+      $.kProcedure, optional($.receiver), $.ident_def, optional($.formal_params)
+    ),
+
+    // receiver = "(" ["VAR"] ident ":" ident ")"
+    receiver: $ => seq(
+      '(', optional($.kVar), $.ident, ':', $.ident, ')'
+    ),
+
+    // forward_decl = "PROCEDURE" "^" [receiver] ident_def [formal_params]
+    forward_decl: $ => seq(
+      $.kProcedure, '^', optional($.receiver), $.ident_def, optional($.formal_params)
     ),
 
     // procedure_body = declaration_seq ["BEGIN" statement_seq]
@@ -482,6 +511,7 @@ module.exports = grammar({
     kUntil: $ => 'UNTIL',
     kWhile: $ => 'WHILE',
 
+    kDefinition: $ => 'DEFINITION',
     kElseif: $ => 'ELSEIF',
     kImport: $ => 'IMPORT',
     kModule: $ => 'MODULE',

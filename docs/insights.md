@@ -70,6 +70,42 @@ only warnings (ABI 14 fallback for lacking `tree-sitter.json`; one redundant `se
 brief did not hold. Worth remembering when scoping future mechanical tasks: verify before
 padding the estimate for a CLI-version gap.
 
+## Round 3 — 2026-08-10
+
+### `DEFINITION` isn't just an alternate `MODULE` keyword
+
+The task brief framed it as "a second acceptable keyword where `module_header` currently
+hardcodes `kModule`." Grepping the real STJ corpus first (per the task's own instruction)
+showed that's wrong: procedure declarations inside a `DEFINITION` module have no body at all —
+`PROCEDURE Open;` then straight to the next declaration, never `END ident`. A label on a task
+brief is a hypothesis, not a spec; the EBNF-adjacent framing ("second keyword") undersold a
+structurally different declaration form one level down. Cost nothing to check — one `grep -rn`
+before writing any grammar.js — and would have shipped a grammar that still `ERROR`s on 70 of
+112 real `.DEF` files if trusted at face value.
+
+### The apparent receiver/formal_params conflict wasn't real
+
+`NEXT.md` flagged a likely grammar conflict between `receiver` and `formal_params`, both
+starting with `"("`. They never actually collide: `receiver` sits *before* the mandatory
+`ident_def` in `procedure_heading` and `formal_params` sits *after* it, so a `"("` seen
+immediately after `kProcedure` is unambiguously `receiver` (nothing else can start there, since
+`ident_def` can't begin with `"("`). `tree-sitter generate` produced zero conflicts on the
+first attempt. Worth remembering: a flagged risk from a handoff document is a place to look
+carefully, not a guarantee of an actual problem — check by running the tool before spending
+design effort pre-emptively working around a conflict that may not exist.
+
+### A second gap in the same shape as the already-known one
+
+The empty-statement gap (`StatementSeq` requires a `Statement`, but the EBNF makes the whole
+production optional) has a sibling: `FieldList` inside a `RECORD` has the same issue — real
+corpus files (`AES.DEF`, `PROCLIST.DEF`) put a trailing `";"` before `END` after the last field,
+which `field_list_seq` (no trailing-separator alternative) rejects. Same root cause — a
+grammar rule modeling a "list with separators" as `item {sep item}` when the source allows
+`item {sep item} [sep]` — recurring in more than one place in the same EBNF. Worth checking all
+list-like productions (`FieldList`, `StatementSeq`, `DeclSeq`, `CaseLabelList`, …) for the same
+optional-trailing-separator shape in one pass when M1.2b picks this up, rather than
+rediscovering each instance one corpus file at a time.
+
 ### Two forks of the same grammar still diverge on field names
 
 `geekstakulus/tree-sitter-oberon-07`'s `queries/highlights.scm` cannot be copied verbatim onto

@@ -5,7 +5,7 @@ Overall state of the xoft MVP. One line per milestone; details in the per-phase 
 | Milestone | State | Detail |
 |---|---|---|
 | M0 — Foundations | ✅ done | [docs/progress/m0-foundations.md](docs/progress/m0-foundations.md) |
-| M1 — Grammar | 🟨 in progress (M1.1, M1.5 done) | [docs/progress/m1-grammar.md](docs/progress/m1-grammar.md) |
+| M1 — Grammar | 🟨 in progress (M1.1, M1.2a, M1.5 done) | [docs/progress/m1-grammar.md](docs/progress/m1-grammar.md) |
 | M2 — Core: lossless parse/serialize | ⬜ not started | — |
 | M3 — Diagnostics and CLI | ⬜ not started | — |
 | M4 — Corpus runner | ⬜ not started | — |
@@ -24,3 +24,4 @@ Cross-cutting records: [insights](docs/insights.md) · [errors and mitigations](
 |---|---|---|
 | 1 | 2026-08-10 | Project bootstrap, M0 complete |
 | 2 | 2026-08-10 | M1.1 base grammar vendored and building; M1.5 highlights.scm |
+| 3 | 2026-08-10 | M1.2a — receivers, forward declarations, DEFINITION module header |
