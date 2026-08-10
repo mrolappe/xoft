@@ -10,8 +10,22 @@ Normative copies consulted:
 - <https://cseweb.ucsd.edu/~wgg/CSE131B/oberon2.htm> (HTML transcription; source of the
   EBNF reproduced below)
 
-Oberon-2 is chosen because it is the common ancestor of every dialect in the corpus:
-Oberon-A, AmigaOberon 3.1 and STJ-Oberon are all Oberon-2 implementations with additions.
+Oberon-2 is chosen as the baseline because it is the common ancestor of most of the corpus, but
+**not uniformly all of it** — this was asserted without checking and is corrected here (M1.4,
+round 8). Oberon-A and STJ-Oberon are confirmed Oberon-2 implementations by corpus usage, not
+just by their own documentation: both use type-bound procedures (receivers), record type
+extension, and `WITH` regularly (11/237 and 68/306 files respectively for receivers alone).
+AmigaOberon 3.1 uses none of these almost at all (1/122 files for receivers, 2/122 for record
+extension, 1/122 for `WITH`) despite being a much larger corpus fraction than that would predict
+— consistent with AmigaOberon being rooted in the **original (1988/1990) Oberon report**, not
+Oberon-2, with its own Amiga/C-interop extensions layered on top (`STRUCT`, `{base,-N}`
+brace-annotated procedures, the `INLINE` pseudo-procedure, `*`/`:` import-rename variants — see
+the dialect table below and `docs/progress/m1-grammar.md`'s M1.4 section). This wasn't
+independently verified against an external source (no AmigaOberon reference manual has been
+consulted), only inferred from corpus usage patterns; treat it as evidence-based, not certain.
+It matters because it changes what "in scope for D1's lexical superset" even means for
+AmigaOberon-only constructs — see `NEXT.md`'s open scoping question.
+
 Oberon-07 is explicitly **not** the baseline — it removes constructs (`LOOP`, `EXIT`, `WITH`,
 type-bound procedure syntax differences) that the corpus uses heavily.
 
@@ -24,8 +38,13 @@ dialect files parse without `ERROR` nodes, without ascribing meaning to them:
 |---|---|---|
 | Nested comments | Oberon-2 report §3.6 (normative) | external scanner, depth-counted |
 | `(*$ … *)` pragmas | Oberon-A, AmigaOberon, STJ | distinct node kind, lexically a comment |
-| `INLINE` assembly blocks | Oberon-A, AmigaOberon | opaque token, contents unparsed |
+| `SYSTEM.INLINE(...)` | STJ only (confirmed by corpus grep — not Oberon-A/AmigaOberon as previously guessed) | **not opaque, not a block** — an ordinary procedure call. Needed no grammar rule; was blocked by an unrelated hex-integer-literal token bug, fixed in M1.4. See `docs/progress/m1-grammar.md`. |
 | `DEFINITION` modules | STJ-Oberon | module header variant |
+| `IMPORT ident * := M` (re-export marker), `IMPORT ident: M` (colon rename) | AmigaOberon only, likely pre-Oberon-2 heritage (see above) | widened `import` rule, M1.4 |
+| `<* ... *>` bracket pragmas | AmigaOberon, STJ (212/792 files) | **not yet in grammar** — different delimiter from `(*$…*)`. Triaged, not scoped. See `NEXT.md`. |
+| `STRUCT` record variant | AmigaOberon only (43/792 files) | **not yet in grammar** — C-interop type, not `RECORD`. Likely a base-language difference, not a "Oberon-2 + lexical extras" addition — see the AmigaOberon-heritage note above. Triaged, not scoped. See `NEXT.md`. |
+| `PROCEDURE ... *{base,-N}(...)`, `param{N}` brace annotations | AmigaOberon only (42/792 files) | **not yet in grammar** — library-vector-offset metadata. Triaged, not scoped. See `NEXT.md`. |
+| `ASSEMBLER` blocks | STJ only (32/792 files) | **not yet in grammar**, real syntax unconfirmed. Triaged, not scoped. See `NEXT.md`. |
 
 ## Normative EBNF (Appendix B of the report)
 

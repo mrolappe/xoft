@@ -298,3 +298,25 @@ incidentally nearby in the same banner-comment header most of these interface fi
 lesson as round 5's and round 6's misattributed `ERROR` causes, generalized one step further:
 even a mechanistically-sound theory needs the "does fixing it change the count" check before it's
 trusted, not just theories that were guessed under time pressure.
+
+### Post-round-8 correction: "AmigaOberon 3.1 is an Oberon-2 implementation" was never checked
+
+`docs/language-baseline.md` asserted all three dialect roots (Oberon-A, AmigaOberon, STJ) are
+"Oberon-2 implementations with additions" from the project's start (M0/M1.1), and every round
+since inherited that framing without questioning it — including this one, until asked directly.
+A quick corpus check (grep for type-bound-procedure receivers, record type extension, `WITH` —
+all genuinely Oberon-2-only constructs, absent from the original 1988/1990 Oberon report)
+shows Oberon-A and STJ use these constructs regularly (11/237 and 68/306 files for receivers
+alone) while AmigaOberon barely does (1/122). Combined with this round's finds — `STRUCT`,
+`{base,-N}` brace annotations, `IMPORT ident: M` colon-rename — none of which resemble Oberon-2
+extensions, AmigaOberon looks much more like it's rooted in the original Oberon report with its
+own Amiga/C-interop extensions layered on, not Oberon-2. Corrected in `docs/language-baseline.md`
+and `corpus/roots.toml`'s origin string (not externally verified against an AmigaOberon reference
+manual — evidence-based from corpus usage, flagged as such in the doc).
+
+**Lesson:** a claim written once at project bootstrap (M0/M1.1, before there was a corpus to
+check it against) can survive unchallenged through every later round simply because nothing in
+the normal workflow re-examines foundational assumptions — only "does this file still parse"
+gets checked repeatedly, not "is the premise about what this file even is still right." Worth
+periodically asking whether a load-bearing claim in `docs/plan.md` or `docs/language-baseline.md`
+has ever actually been checked against the corpus, versus just asserted early and repeated.

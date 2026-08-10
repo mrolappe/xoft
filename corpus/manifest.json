@@ -2,7 +2,7 @@
   "roots": [
     {
       "alias": "amiga-oberon-31",
-      "origin": "AmigaOberon 3.1 (A+L AG) — commercial Amiga Oberon-2 system",
+      "origin": "AmigaOberon 3.1 (A+L AG) — commercial Amiga Oberon system; corpus usage suggests original-Oberon (not Oberon-2) heritage, see docs/language-baseline.md",
       "license": "archived third-party; local reference only, not redistributed",
       "files": 122,
       "bytes": 1234082
