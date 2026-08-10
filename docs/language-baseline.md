@@ -16,15 +16,29 @@ round 8). Oberon-A and STJ-Oberon are confirmed Oberon-2 implementations by corp
 just by their own documentation: both use type-bound procedures (receivers), record type
 extension, and `WITH` regularly (11/237 and 68/306 files respectively for receivers alone).
 AmigaOberon 3.1 uses none of these almost at all (1/122 files for receivers, 2/122 for record
-extension, 1/122 for `WITH`) despite being a much larger corpus fraction than that would predict
-— consistent with AmigaOberon being rooted in the **original (1988/1990) Oberon report**, not
-Oberon-2, with its own Amiga/C-interop extensions layered on top (`STRUCT`, `{base,-N}`
-brace-annotated procedures, the `INLINE` pseudo-procedure, `*`/`:` import-rename variants — see
-the dialect table below and `docs/progress/m1-grammar.md`'s M1.4 section). This wasn't
-independently verified against an external source (no AmigaOberon reference manual has been
-consulted), only inferred from corpus usage patterns; treat it as evidence-based, not certain.
-It matters because it changes what "in scope for D1's lexical superset" even means for
-AmigaOberon-only constructs — see `NEXT.md`'s open scoping question.
+extension, 1/122 for `WITH`) despite being a much larger corpus fraction than that would predict.
+
+**Confirmed against the primary source**, not just corpus inference:
+
+> A+L AG / Fridtjof Siebert: *Amiga Oberon Compiler Handbuch*. © 1990.
+> <https://archive.org/details/amiga-oberon>
+
+The manual's own bibliography cites only `[nw:or]: Niklaus Wirth, Revised Oberon Report, ETH
+Institut für Informatik` — the **original** Oberon report, never Mössenböck & Wirth's *The
+Programming Language Oberon-2*. Its foreword describes "Oberon" (singular, Wirth's language,
+already including type extension as a base-language feature per the original report) as the
+implemented language, not Oberon-2's later additions (type-bound procedures/receivers, `WITH`
+multi-guard, open arrays as pointer base type). "Amiga Oberon 2.0" appearing throughout the text
+(e.g. "Anhang A: Amiga Oberon 2.0") is the **product's own version number**, not a language-spec
+reference — ruled out explicitly, since it reads exactly like an Oberon-2 citation out of
+context.
+
+AmigaOberon's real extensions beyond the original report are its own Amiga/C-interop additions
+— `STRUCT`, `{base,-N}` brace-annotated procedures, the `INLINE` pseudo-procedure, `*`/`:`
+import-rename variants — not Oberon-2 ones (see the dialect table below and
+`docs/progress/m1-grammar.md`'s M1.4 section). This matters because it changes what "in scope
+for D1's lexical superset" even means for AmigaOberon-only constructs — see `NEXT.md`'s open
+scoping question.
 
 Oberon-07 is explicitly **not** the baseline — it removes constructs (`LOOP`, `EXIT`, `WITH`,
 type-bound procedure syntax differences) that the corpus uses heavily.

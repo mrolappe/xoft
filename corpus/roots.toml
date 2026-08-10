@@ -14,7 +14,7 @@ license = "archived third-party; local reference only, not redistributed"
 [[root]]
 alias = "amiga-oberon-31"
 path = "/Users/mrolappe/Nextcloud/retro-comp/amiga/vamos-spielplatz/AmigaOberon3.1"
-origin = "AmigaOberon 3.1 (A+L AG) — commercial Amiga Oberon system; corpus usage suggests original-Oberon (not Oberon-2) heritage, see docs/language-baseline.md"
+origin = "AmigaOberon 3.1 (A+L AG) — commercial Amiga Oberon system, based on Wirth's original Oberon report, not Oberon-2 (confirmed via the 1990 manual, https://archive.org/details/amiga-oberon, whose bibliography cites only the Revised Oberon Report); see docs/language-baseline.md"
 license = "archived third-party; local reference only, not redistributed"
 
 [[root]]

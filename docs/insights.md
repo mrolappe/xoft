@@ -310,9 +310,14 @@ shows Oberon-A and STJ use these constructs regularly (11/237 and 68/306 files f
 alone) while AmigaOberon barely does (1/122). Combined with this round's finds — `STRUCT`,
 `{base,-N}` brace annotations, `IMPORT ident: M` colon-rename — none of which resemble Oberon-2
 extensions, AmigaOberon looks much more like it's rooted in the original Oberon report with its
-own Amiga/C-interop extensions layered on, not Oberon-2. Corrected in `docs/language-baseline.md`
-and `corpus/roots.toml`'s origin string (not externally verified against an AmigaOberon reference
-manual — evidence-based from corpus usage, flagged as such in the doc).
+own Amiga/C-interop extensions layered on, not Oberon-2. **Confirmed against the primary
+source**, not just inferred: the 1990 AmigaOberon manual itself
+(<https://archive.org/details/amiga-oberon>, found after the user pointed at it) cites only
+`[nw:or]: Niklaus Wirth, Revised Oberon Report` in its bibliography, never the Oberon-2 report —
+and "Amiga Oberon 2.0" appearing throughout the text turned out to be the product's own version
+number, not a language-spec reference (worth ruling out explicitly; it reads exactly like an
+Oberon-2 citation out of context). Corrected in `docs/language-baseline.md` and
+`corpus/roots.toml`'s origin string with the citation.
 
 **Lesson:** a claim written once at project bootstrap (M0/M1.1, before there was a corpus to
 check it against) can survive unchallenged through every later round simply because nothing in
