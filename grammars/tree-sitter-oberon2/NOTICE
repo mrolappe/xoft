@@ -1,0 +1,20 @@
+This grammar is vendored, not written from scratch.
+
+grammar.js, package.json, LICENSE, test/corpus/*
+    Forked from https://github.com/viegasfh/tree-sitter-oberon-2 (MIT)
+    at commit bb5282d6d191861b0e4f6c6b6d6540e15dbfec14 (2023-01-14).
+    src/ (parser.c, grammar.json, node-types.json, tree_sitter/*) is
+    regenerated locally with `tree-sitter generate` and is not committed;
+    see .gitignore.
+
+queries/highlights.scm
+    Adapted from https://github.com/geekstakulus/tree-sitter-oberon-07 (MIT)
+    at commit 162c3432ed2584efa0bca4fd10e5cb4d3195f4a6 (2023-10-05), rewritten
+    against this grammar's actual node names (the two grammars share a
+    skeleton but diverge in places — see the node type list in node-types.json
+    after generating).
+
+Known gaps inherited from the upstream grammar (tracked for M1.2/M1.3, not
+fixed here): no type-bound procedure receivers, no WITH/LOOP/EXIT/RETURN-as-
+statement, no forward declarations, no empty statements, comments cannot
+nest. See ../../docs/insights.md.

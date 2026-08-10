@@ -61,3 +61,22 @@ parsing. Worth doing from the start rather than retrofitting.
 `~/sandkasten/tmp-stj-oberon-prj/OBERON_I` and `~/atari-retro-dev/c-drv/OBERON_I` are identical
 apart from a `.DS_Store`. `corpus/roots.toml` uses the `atari-retro-dev` copy; the other is
 ignored. Without this, the corpus would have been double-counted at 1098 files.
+
+### The upstream grammar needed zero rule changes for tree-sitter 0.26
+
+`tree-sitter generate` on `viegasfh/tree-sitter-oberon-2` as-is, under CLI 0.26.11, produces
+only warnings (ABI 14 fallback for lacking `tree-sitter.json`; one redundant `seq` in `comment`)
+— no errors, no conflicts. The "written against ~0.20, expect breakage" premise in the M1.1 task
+brief did not hold. Worth remembering when scoping future mechanical tasks: verify before
+padding the estimate for a CLI-version gap.
+
+### Two forks of the same grammar still diverge on field names
+
+`geekstakulus/tree-sitter-oberon-07`'s `queries/highlights.scm` cannot be copied verbatim onto
+`viegasfh/tree-sitter-oberon-2` even though both descend from the same EBNF-to-grammar shape and
+share most rule names (`module_header`, `ident_def`, `qualident`, …). The 07 fork adds field
+labels (`param:`, `paramtype:`, `returntype:`) and a `base_type` wrapper around builtin
+qualidents that this grammar doesn't have. `tree-sitter query <file> <source>` will happily
+report 0 matches instead of erroring when a query pattern's shape just never occurs — silent,
+not loud. Always cross-check against `node-types.json` fields before trusting a ported query,
+and smoke-test it on a real source file, not just the corpus.
