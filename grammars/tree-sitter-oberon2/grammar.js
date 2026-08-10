@@ -300,11 +300,14 @@ module.exports = grammar({
       $.procedure_heading, ';', $.procedure_body, $.ident
     ),
 
-    // procedure_heading = "PROCEDURE" [sysflag] [receiver] ident_def
+    // procedure_heading = "PROCEDURE" ["*"] [sysflag] [receiver] ident_def
     //                     [vector_offset | square_vector_offset | external_code_names]
     //                     [formal_params]
+    // The "*" right after PROCEDURE (before sysflag/receiver/ident) is Oberon-A's
+    // "assignable procedure" mark (docs/OC.doc "AssignableProcs"): it allows a procedure to
+    // be assigned to a procedure variable without being exported, e.g. `PROCEDURE* [0] Foo`.
     procedure_heading: $ => seq(
-      $.kProcedure, optional($.sysflag), optional($.receiver), $.ident_def,
+      $.kProcedure, optional($.kStar), optional($.sysflag), optional($.receiver), $.ident_def,
       optional(choice($.vector_offset, $.square_vector_offset, $.external_code_names)),
       optional($.formal_params)
     ),

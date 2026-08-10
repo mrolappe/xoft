@@ -687,3 +687,36 @@ M1 is still below its ≥95% exit criterion (54.42%). Next round should re-sampl
 across corpus roots (not just `oberon-a/source/amiga/`) since this fix likely cleared out a
 different mix of files than round 14 anticipated — no re-sampling done yet this round beyond the
 aggregate number.
+
+## M1.4 continued — Oberon-A "assignable procedure" mark (round 16, 2026-08-10)
+
+Checked round 15's carried-over lead first: `oberon-a/source/amiga/*.mod` was **not** fully
+cleared by round 15's fix (31/121 files in that directory still failed), so sampled there before
+moving to fresh territory. `Bullet.mod`'s failure was a 10-line `ERROR` span starting right at a
+`PROCEDURE* [0] CloseLib (VAR rc : LONGINT);` heading — a `*` immediately after the `PROCEDURE`
+keyword, before the system flag and identifier (not the usual export mark, which comes after the
+identifier).
+
+`docs/OC.doc`'s "AssignableProcs" node names this directly: "Procedures that are to be assigned
+to procedure variables must be marked with a `*` character, unless they are marked as exported,"
+with the example `PROCEDURE * Assignable;`. Grepping both Oberon-A roots confirmed this is
+widespread and independent of round 14's square-bracket family: 78 files in `oberon-a`, 11 in
+`amiga-oberon-31` (which predates Oberon-2 and has no `OC.doc`, but uses the identical mark) —
+89 files total, no case found combining the mark with the identifier's own export mark (the doc's
+"unless exported" phrasing explains why: they're alternatives, not both used together).
+
+**Grammar change**, test-first (`tree-sitter test` red before, green after): `procedure_heading`
+gained `optional($.kStar)` between `$.kProcedure` and `optional($.sysflag)`. Reused the existing
+`kStar` token (already used inside `ident_def` for the export mark) — no new token, no scanner
+change, `tree-sitter generate` reported zero conflicts.
+
+New corpus test: `procedures.txt` "Procedure With Assignable Mark" (`Bullet.mod`'s own
+`PROCEDURE* [0] CloseLib` shape, copied verbatim). `tree-sitter test`: 56/56 green (55 before +
+1 new).
+
+**Impact:** `sweep_corpus.py` 54.42% → 60.61% (431 → 480 of 792 passing), +49 files.
+
+M1 is still below its ≥95% exit criterion (60.61%). Post-fix root breakdown of remaining
+failures: `stj` 105, `amiga-oberon-31` 92, `oberon-a` 72, `voc` 43 — `oberon-a` dropped the most
+(was 118) but `stj` and `voc` are now the largest untouched territory relative to their size and
+haven't been sampled at all yet this round; worth checking those first next round.

@@ -336,7 +336,46 @@ END Tags.
               (integer))
             (formal_type
               (qualident
-                (ident)))))))) 
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With Assignable Mark
+=========================
+
+MODULE Bullet;
+  PROCEDURE* [0] CloseLib (VAR rc : LONGINT);
+  BEGIN
+  END CloseLib;
+END Bullet.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (kStar)
+        (sysflag
+          (integer))
+        (ident_def
+          (ident))
+        (formal_params
+          (fp_section
+            (kVar)
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
   (module_footer
     (kEnd)
     (ident)))

@@ -498,3 +498,25 @@ optional" (what `grammar.js` had) and miss that the outer brace makes the whole 
 — the visual nesting doesn't make the two `{}` levels obvious at a glance. Worth re-reading a
 baseline EBNF rule's brace nesting literally, not from memory of "how Oberon declaration order
 usually looks", when a corpus sample defies grammar.js's current shape.
+
+### "Cleared" clusters need a per-file re-check, not just a trust of the aggregate number
+
+Round 15's fix was aimed at `oberon-a/source/amiga/*.mod`, and the round ended without
+re-sampling that directory specifically — only the aggregate pass rate was re-run. Round 16
+found 31 of that directory's ~121 files (`.mod` count varies) still failing, on a wholly
+different construct. A fix that targets one cluster's *symptom* (a narrow ERROR span) can still
+leave a second, unrelated construct blocking the same files further down — the aggregate number
+going up doesn't mean a specific directory named in `NEXT.md` is actually clear. Worth spending
+one `grep -A1` pass over the directory in question before assuming it's exhausted and moving on.
+
+### An export mark and a "must-be-assignable" mark can look like the same token in two positions
+
+Oberon's normative export mark is `ident "*"` (after the identifier). Oberon-A's "assignable
+procedure" mark reuses the same `*` character but sits *before* the identifier, directly after
+`PROCEDURE` (`PROCEDURE* [sysflag] Name`) — a different grammar position with a different meaning
+(assignability to a procedure variable, not export), documented in `docs/OC.doc`'s
+"AssignableProcs" node with the explicit rule "unless they are marked as exported" (i.e. the two
+marks are alternatives in practice, never combined — confirmed by grep, zero files in the corpus
+use both). Implemented as a second `optional($.kStar)` in `procedure_heading`, reusing the
+existing `kStar` token rather than inventing a new one — same lexeme, different grammar slot, no
+scanner or token changes needed.
