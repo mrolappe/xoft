@@ -273,3 +273,80 @@ END Types.
   (module_footer
     (kEnd)
     (ident)))
+
+===========================
+Pointer System Flag
+===========================
+
+MODULE Types;
+  TYPE
+    FramePtr* = POINTER [2] TO Frame;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident)
+        (kStar))
+      (type
+        (struct_type
+          (pointer_type
+            (kPointer)
+            (sysflag
+              (integer))
+            (kTo)
+            (type
+              (qualident
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+Record System Flag
+===========================
+
+MODULE Types;
+  TYPE
+    Label* = RECORD [2]
+      x, y: INTEGER
+    END;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident)
+        (kStar))
+      (type
+        (struct_type
+          (record_type
+            (kRecord)
+            (sysflag
+              (integer))
+            (field_list_seq
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident))
+                  (ident_def
+                    (ident)))
+                (type
+                  (qualident
+                    (ident)))))
+            (kEnd))))))
+  (module_footer
+    (kEnd)
+    (ident)))

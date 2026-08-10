@@ -578,3 +578,73 @@ identical case is right there to copy). Confirmed red before the grammar change,
 
 M1 is still below its ≥95% exit criterion (39.39%). No candidates queued — next round should
 re-sample `sweep_corpus.py`'s remaining 480 failures fresh, same method as this round.
+
+## M1.4 continued — Oberon-A "system flags" + square-bracket library calls ✅ (round 14, 2026-08-10)
+
+Sampled `sweep_corpus.py -v`'s whole-file `ERROR [0, 0]` failures, filtering out the already-
+triaged `amiga-oberon-31/Interfaces/*` (`STRUCT`/`UNTRACED POINTER`, out of scope). The
+`oberon-a/source/amiga/*.mod` files stood out as a large, previously-unsampled block — nearly
+every file in that directory. `BattClock.mod` (small, representative) failed at `MODULE [2]
+BattClock;` — right after the `MODULE` keyword, before the module's own `ident`.
+
+That `[2]` is not the curly-brace AmigaOberon `vector_offset`/`param_offset` from round 12
+(different corpus root, different delimiter) — it's a distinct Oberon-A-only construct. Found
+the normative description in the Oberon-A compiler's own docs (`Oberon-A/docs/OC.doc`, nodes
+`SysFlags`, `LibCalls`, `RegPars`, `ExternalCode`), not the corpus itself:
+
+- **System flags** — `"[" integer "]"` placed directly after `MODULE`, `POINTER`, `PROCEDURE` or
+  `RECORD`, marking the following declaration as following a foreign calling/layout convention
+  (1=Modula-2, 2=C, 3=BCPL, 4=Assembly). Confirmed via corpus grep: 76 files use it on `MODULE`,
+  24 on `PROCEDURE`, 22 on `POINTER`, 14 on `RECORD` (grep needed `-a`, not just `-r` — Latin-1
+  files with high-bit bytes are silently skipped as "binary" by default, a repeat of round 11's
+  encoding lesson but on the *input* side this time, not string-pairing).
+- **Square-bracket library-call heading** — `PROCEDURE identdef "[" ident "," ["-"] integer "]"
+  [formal_params]`, e.g. `PROCEDURE OpenLibrary* [base,-552] (...)`. Same concept as the
+  curly-brace `vector_offset` (round 12) — a library-base variable and a negative vector
+  offset — but a different dialect's delimiter and grammar (leading `"-"` is optional here, not
+  mandatory). Modeled as a sibling rule, `square_vector_offset`, not a reuse of `vector_offset`,
+  since the two corpora never mix delimiters and forcing one rule to accept both would blur a
+  real dialect distinction. 49 files.
+- **Register parameters** — `RegSpec = "[" integer "]" [".."]` after a formal parameter's
+  `ident`, alongside `param_offset`'s curly-brace form in `fp_section` (`choice($.param_offset,
+  $.reg_spec)`). The integer is a CPU register number (0-15: D0-D7, A0-A7); a trailing `".."`
+  marks the (always-last) parameter as a variable-length argument list — confirmed structurally
+  identical to `param_offset`'s slot, no new rule needed in `fp_section` itself. 89 files use the
+  bracket form, 25 of those also use the `".."` vararg marker.
+- **External code names** — `"[" string {"," string} "]"` in the same post-`ident_def` slot as
+  `vector_offset`/`square_vector_offset`, e.g. `PROCEDURE Foo* ["_Foo"](...)` — the linker
+  symbol name(s) of an externally-compiled (non-Oberon) procedure, used instead of a library
+  vector offset when the procedure isn't a library call. Distinguishable from
+  `square_vector_offset` by first token (`ident` vs. `string`), so `choice($.vector_offset,
+  $.square_vector_offset, $.external_code_names)` in `procedure_heading` needed no precedence or
+  conflict declaration. 9 files.
+
+**Grammar changes**, test-first (`tree-sitter test` red before, green after):
+
+- `sysflag: $ => seq('[', $.integer, ']')`, spliced into `module_header` (after `kModule`),
+  `pointer_type` (after `kPointer`), `record_type` (after `kRecord`) and `procedure_heading`
+  (after `kProcedure`, before `receiver`/`ident_def`) — all four are `optional($.sysflag)` at
+  the same "right after the keyword" position per `OC.doc`.
+- `square_vector_offset` and `external_code_names`, both new rules, added as `choice` siblings
+  of the existing `vector_offset` in `procedure_heading`'s post-`ident_def` slot.
+- `reg_spec: $ => seq('[', $.integer, ']', optional('..'))`, added as a `choice` sibling of
+  `param_offset` in `fp_section`.
+- No scanner changes — every addition is a plain context-free rule, no new external token.
+  `tree-sitter generate` reported zero conflicts.
+
+New corpus tests: `module.txt` "module system flag"; `types.txt` "Pointer System Flag", "Record
+System Flag"; `procedures.txt` "Procedure With System Flag", "Procedure With Square Vector
+Offset And Register Parameters", "Procedure With External Code Names", "Procedure With VarArg
+Register Parameter" (7 new cases, real shapes copied from `OC.doc`'s own examples —
+`OpenLibrary`, `CoerceMethodA` — not guessed). `tree-sitter test`: 54/54 green (47 before this
+round + 7 new).
+
+**Impact:** `sweep_corpus.py` 39.39% → 41.41% (312 → 328 of 792 passing), +16 files.
+
+M1 is still below its ≥95% exit criterion (41.41%). Not yet implemented from the same `OC.doc`
+family: the external-code declaration's own heading shape when it has neither a library base
+nor a vector offset (rare — only the string-list form was confirmed in the corpus), and no
+attempt yet to re-check whether `oberon-a/source/amiga/*.mod` files now pass in bulk or hit a
+*second* blocking construct further down (`sweep_corpus.py` was only re-run in aggregate this
+round, not re-sampled per-file — that's the natural first step next round: check how many
+`oberon-a/source/amiga/*.mod` files still fail and on what, before sampling fresh territory).

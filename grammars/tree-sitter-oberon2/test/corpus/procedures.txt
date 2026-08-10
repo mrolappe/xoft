@@ -172,3 +172,171 @@ END Cia.
     (module_footer
       (kEnd)
       (ident)))
+
+=========================
+Procedure With System Flag
+=========================
+
+MODULE Classface;
+  PROCEDURE [0] InstData* (cl: i.IClassPtr): e.APTR;
+END Classface.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (sysflag
+          (integer))
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                qualifier: (ident)
+                property: (ident))))
+          (qualident
+            qualifier: (ident)
+            property: (ident))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With Square Vector Offset And Register Parameters
+=========================
+
+MODULE Exec;
+  PROCEDURE OpenLibrary* [base,-552] (libName [9]: ARRAY OF CHAR; version [0]: LONGINT): APTR;
+END Exec.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (square_vector_offset
+          (ident)
+          (integer))
+        (formal_params
+          (fp_section
+            (ident)
+            (reg_spec
+              (integer))
+            (formal_type
+              (kArray)
+              (kOf)
+              (qualident
+                (ident))))
+          (fp_section
+            (ident)
+            (reg_spec
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With External Code Names
+=========================
+
+MODULE Classface;
+  PROCEDURE [4] NewLabelA* ["EALabels_xNewLabel"] (cl [8]: IClassPtr; VAR msg [9]: Msg);
+END Classface.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (sysflag
+          (integer))
+        (ident_def
+          (ident)
+          (kStar))
+        (external_code_names
+          (string))
+        (formal_params
+          (fp_section
+            (ident)
+            (reg_spec
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))
+          (fp_section
+            (kVar)
+            (ident)
+            (reg_spec
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With VarArg Register Parameter
+=========================
+
+MODULE Tags;
+  PROCEDURE SetAttrsA* [base,-6] (obj [8]: Object; tags [0]..: LONGINT);
+END Tags.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (square_vector_offset
+          (ident)
+          (integer))
+        (formal_params
+          (fp_section
+            (ident)
+            (reg_spec
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))
+          (fp_section
+            (ident)
+            (reg_spec
+              (integer))
+            (formal_type
+              (qualident
+                (ident)))))))) 
+  (module_footer
+    (kEnd)
+    (ident)))

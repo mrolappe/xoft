@@ -87,15 +87,33 @@ MODULE Hello;
 END Hello.
 ---
 
-(module 
+(module
   (module_header
     (kModule)
-    (ident)) 
+    (ident))
   (import_list
     (kImport)
     (import
       (ident)
       (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====================
+module system flag
+====================
+
+MODULE [2] Hello;
+END Hello.
+---
+
+(module
+  (module_header
+    (kModule)
+    (sysflag
+      (integer))
+    (ident))
   (module_footer
     (kEnd)
     (ident)))

@@ -438,3 +438,41 @@ already show a few hundred lines up in the same file, and the surrounding `case_
 was already in the immediately preceding test. Copying both verbatim and hand-assembling the new
 test passed on the first `tree-sitter test` run — no `--update` round-trip needed. The rule is
 "don't guess a shape you haven't seen," not "always regenerate."
+
+## Round 14 — 2026-08-10
+
+### The compiler's own manual beats corpus archaeology when one exists
+
+Rounds up to this point derived every dialect construct's grammar from grep-ing the corpus and
+inferring the shape from examples. `Oberon-A/docs/OC.doc` — the actual Oberon-A compiler's
+reference manual, sitting right next to the corpus root in `roots.toml`'s `oberon-a` path — has
+a `$`-prefixed formal EBNF for every dialect extension it defines (`ModuleHeading`,
+`LibCallHeading`, `RegParameters`, `RegSpec`), plus worked examples (`OpenLibrary`,
+`CoerceMethodA`) that became this round's corpus tests verbatim. Checking for a dialect's own
+docs directory before reverse-engineering its grammar from source samples would have shortened
+several earlier rounds (the round 9/12 brace-annotation and bracket-pragma work both had to
+infer shapes purely from usage). Not every corpus root ships one — `amiga-oberon-31` and `stj`
+don't have an equivalent — but `oberon-a` does, and it's worth a `find <root> -iname '*.doc'`
+before falling back to corpus grep for future oberon-a-rooted gaps.
+
+### `grep -r` silently skips Latin-1 corpus files unless given `-a`
+
+A frequency-count `grep -rl` across the whole `oberon-a` root came back with implausibly low
+counts (1 file where the real count was 77) — `grep` treats any file containing a byte sequence
+it can't classify as text (the corpus's Latin-1 high-bit bytes, same encoding issue as round
+6's insight, but hitting the *search* side this time rather than string-pairing) as binary and
+skips it under `-r` unless `-a` (treat as text) is also passed. Round 6 already knew the corpus
+is Latin-1 for `tree-sitter parse` transcoding purposes; this round is the reminder that the
+same fact applies to any `grep -r` frequency count over the raw corpus, not just to feeding
+files to the parser. Always add `-a` when grepping corpus roots directly (not through
+`sweep_corpus.py`, which transcodes).
+
+### Two dialects' delimiters for the "same" concept are worth two grammar rules, not one
+
+AmigaOberon's curly-brace `{base,-54}` and Oberon-A's square-bracket `[base,-552]` vector-offset
+annotations describe the same underlying concept (a library base variable plus a negative vector
+offset) but are never mixed within a corpus root and have slightly different grammars (Oberon-A's
+leading `-` is optional per its own EBNF, AmigaOberon's is mandatory). Modeled as two sibling
+rules (`vector_offset`, `square_vector_offset`) rather than one rule accepting either delimiter —
+collapsing them would blur a real dialect distinction for no parsing benefit, since the two never
+compete for the same input.

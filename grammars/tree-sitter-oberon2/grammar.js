@@ -75,7 +75,14 @@ module.exports = grammar({
         $.module_footer
       )
     ),
-    module_header: $ => seq($.kModule, $.ident, ';'),
+    module_header: $ => seq($.kModule, optional($.sysflag), $.ident, ';'),
+
+    // sysflag = "[" integer "]"
+    // Oberon-A dialect extension (not in normative EBNF, confirmed via corpus and docs/OC.doc):
+    // a "system flag" marking a MODULE, POINTER, RECORD or PROCEDURE as following a foreign
+    // (non-Oberon) calling/layout convention — 1=Modula-2, 2=C, 3=BCPL, 4=Assembly. Placed
+    // directly after the keyword it modifies, before whatever normally follows.
+    sysflag: $ => seq('[', $.integer, ']'),
     definition_header: $ => seq($.kDefinition, $.ident, ';'),
     module_footer: $ => seq($.kEnd, $.ident, '.'),
 
@@ -183,6 +190,7 @@ module.exports = grammar({
     // record_type = "RECORD" ["(" base_type ")"] [field_list_seq] "END"
     record_type: $ => seq(
       $.kRecord,
+      optional($.sysflag),
       optional(seq(
         '(',
         $.base_type,
@@ -218,7 +226,7 @@ module.exports = grammar({
 
     // pointer_type = "POINTER" "TO" type
     pointer_type: $ => seq(
-      $.kPointer, $.kTo, $.type
+      $.kPointer, optional($.sysflag), $.kTo, $.type
     ),
 
     // procedure_type = "PROCEDURE" [formal_params]
@@ -241,8 +249,8 @@ module.exports = grammar({
     // fp_section = ["VAR"] ident [param_offset] {"," ident [param_offset]} ":" formal_type
     fp_section: $ => seq(
       optional($.kVar),
-      $.ident, optional($.param_offset),
-      repeat(seq(',', $.ident, optional($.param_offset))),
+      $.ident, optional(choice($.param_offset, $.reg_spec)),
+      repeat(seq(',', $.ident, optional(choice($.param_offset, $.reg_spec)))),
       ':',
       $.formal_type
     ),
@@ -251,6 +259,13 @@ module.exports = grammar({
     // AmigaOberon dialect extension: per-parameter vector-offset metadata paired with
     // a procedure's vector_offset, e.g. `PROCEDURE Foo(x{2}: LONGINT)`.
     param_offset: $ => seq('{', $.integer, '}'),
+
+    // reg_spec = "[" integer "]" [".."]
+    // Oberon-A dialect extension (docs/OC.doc "RegPars"): square-bracket sibling of
+    // param_offset — the CPU register (0..15: D0-D7, A0-A7) a library-call/external-code
+    // parameter is passed in. A trailing ".." marks the (always last) parameter as a
+    // variable-length argument list.
+    reg_spec: $ => seq('[', $.integer, ']', optional('..')),
 
     // formal_type = {"ARRAY" "OF"} (qualident | procedure_type)
     // The report's FPSection uses full Type (Qualident | ARRAY OF Type | RECORD... |
@@ -289,9 +304,13 @@ module.exports = grammar({
       $.procedure_heading, ';', $.procedure_body, $.ident
     ),
 
-    // procedure_heading = "PROCEDURE" [receiver] ident_def [vector_offset] [formal_params]
+    // procedure_heading = "PROCEDURE" [sysflag] [receiver] ident_def
+    //                     [vector_offset | square_vector_offset | external_code_names]
+    //                     [formal_params]
     procedure_heading: $ => seq(
-      $.kProcedure, optional($.receiver), $.ident_def, optional($.vector_offset), optional($.formal_params)
+      $.kProcedure, optional($.sysflag), optional($.receiver), $.ident_def,
+      optional(choice($.vector_offset, $.square_vector_offset, $.external_code_names)),
+      optional($.formal_params)
     ),
 
     // vector_offset = "{" ident "," "-" integer "}"
@@ -301,6 +320,21 @@ module.exports = grammar({
     // the offset is always negative and may be decimal or hex.
     vector_offset: $ => seq(
       '{', $.ident, ',', '-', $.integer, '}'
+    ),
+
+    // square_vector_offset = "[" ident "," ["-"] integer "]"
+    // Oberon-A dialect extension (docs/OC.doc "LibCalls"): square-bracket sibling of
+    // vector_offset for an Amiga library-call heading, e.g. `PROCEDURE Foo*[base,-6](...)`.
+    // Unlike vector_offset the leading "-" is optional in the compiler's own grammar.
+    square_vector_offset: $ => seq(
+      '[', $.ident, ',', optional('-'), $.integer, ']'
+    ),
+
+    // external_code_names = "[" string {"," string} "]"
+    // Oberon-A dialect extension (docs/OC.doc "ExternalCode"): the linker symbol name(s) of
+    // an externally-compiled procedure, e.g. `PROCEDURE Foo* ["_Foo"](...)`.
+    external_code_names: $ => seq(
+      '[', $.string, repeat(seq(',', $.string)), ']'
     ),
 
     // receiver = "(" ["VAR"] ident ":" ident ")"
