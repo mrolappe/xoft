@@ -1,0 +1,30 @@
+# Corpus roots. Machine-local absolute paths live ONLY here; the generated
+# manifest and every report reference files by (root alias, relative path).
+#
+# The sources themselves are archived third-party code and are deliberately NOT
+# vendored into this repository. The manifest pins their sha256 so a run can be
+# reproduced, without redistributing anything.
+
+[[root]]
+alias = "oberon-a"
+path = "/Users/mrolappe/studio/oberon-a-fs-uae-env/Oberon-A"
+origin = "Oberon-A 1.6 (Frank Copeland) — Oberon-2 compiler and Amiga interface modules"
+license = "archived third-party; local reference only, not redistributed"
+
+[[root]]
+alias = "amiga-oberon-31"
+path = "/Users/mrolappe/Nextcloud/retro-comp/amiga/vamos-spielplatz/AmigaOberon3.1"
+origin = "AmigaOberon 3.1 (A+L AG) — commercial Amiga Oberon-2 system"
+license = "archived third-party; local reference only, not redistributed"
+
+[[root]]
+alias = "stj"
+path = "/Users/mrolappe/atari-retro-dev/c-drv/OBERON_I"
+origin = "STJ-Oberon (Atari ST) — library, system, tutorial and misc project sources"
+license = "archived third-party; local reference only, not redistributed"
+
+[[root]]
+alias = "voc"
+path = "/Users/mrolappe/git-repos/voc/src/library"
+origin = "vishap oberon compiler (voc) standard library — public Oberon-2"
+license = "GPL-3.0"

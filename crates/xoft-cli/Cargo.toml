@@ -1,0 +1,23 @@
+[package]
+name = "xoft-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Command line interface for xoft"
+
+[[bin]]
+name = "xoft"
+path = "src/main.rs"
+
+[dependencies]
+xoft-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+toml = "0.9"
+walkdir = "2"
+anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3.27.0"

@@ -1,0 +1,11 @@
+[package]
+name = "xoft-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Core library for xoft: parsing, lossless serialization and dialect mapping for Oberon-flavored languages"
+
+[dependencies]
+serde = { workspace = true }
+sha2 = "0.10"
