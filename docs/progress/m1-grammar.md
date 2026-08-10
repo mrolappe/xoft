@@ -169,6 +169,74 @@ Re-ran the M1.2b spot-check files:
   without contributing new errors of its own.
 - `Viewers.Mod` — unchanged from M1.2b (doesn't use any construct touched this round).
 
-## M1.3 — not started
+## M1.3 — external C scanner for nested comments + pragmas ✅ (round 6, 2026-08-10)
 
-See `NEXT.md` for the current task.
+Added `src/scanner.c` (`tree_sitter_oberon2_external_scanner_{create,destroy,serialize,
+deserialize,scan}`, ~60 lines): depth-counts `(*`/`*)` pairs, reporting `COMMENT` unless the
+character right after the opening `(*` is `$`, in which case it reports `PRAGMA` — per
+`docs/plan.md` D1 / M1.3's row, "a distinct node kind, lexically a comment", confirmed correct
+scope (the plan table explicitly assigns the pragma node to M1.3, resolving `NEXT.md`'s "check
+whether this is in scope" flag). `grammar.js`: `externals: $ => [$.comment, $.pragma]`,
+`extras: $ => [$.comment, $.pragma, /\s/]`, old regex `comment: $ => token(seq(...))` rule
+removed (a `token()` rule can't express nesting at all). `queries/highlights.scm` gained
+`(pragma) @comment` — the plan's "lexically a comment" is exactly a highlighting statement too.
+
+**`.gitignore` fix, not optional:** `grammars/*/src/` blanket-ignored the whole `src/` directory,
+which was fine while everything in it was generated (M1.1). `scanner.c` is hand-written source,
+not generated, and would have silently vanished on a fresh checkout. Changed to
+`grammars/*/src/*` + `!grammars/*/src/scanner.c` so the generated files (`parser.c`,
+`grammar.json`, `node-types.json`, `tree_sitter/`) stay ignored but the scanner is tracked.
+
+**Real bug, not a source problem — see `docs/errors.md` round 6:** the first working version of
+the scanner failed on *every* comment except one at byte 0 of the file (confirmed by depth-count
+simulation in Python against the actual corpus files: comments were always balanced; the parser
+still errored). Root cause: tree-sitter calls the external scanner exactly once per token
+boundary, before it tries to skip whitespace itself via the internal DFA — so if the scanner
+declines because `lookahead` is a space/newline rather than `(`, it never gets a second look
+after that whitespace is skipped. Fixed by having the scanner skip its own leading whitespace
+(`lexer->advance(lexer, true)`, `skip=true`) before checking for `(`.
+
+New corpus tests in `test/corpus/comments.txt`: "nested comment" (`(* outer (* inner *) still
+outer *)`) and "pragma" (`(*$-k *)`, the exact form found in the STJ-Oberon corpus — the only
+corpus root that actually uses `(*$…*)`; Oberon-A/AmigaOberon have none. `Printer.Mod`'s
+`<*STANDARD-*>`-style bracket pragma is a *different* delimiter, not covered by, or in scope
+for, this scanner). `tree-sitter test`: 35/35 green (33 before this round + 2 new).
+
+Spot-checked `ERROR`-region counts (`grep -c "(ERROR"` on `tree-sitter parse` output, excluding
+the CLI's own summary line which also contains the string `(ERROR`) against the pre-M1.3
+baseline via `git stash`:
+
+| File | Before | After |
+|---|---|---|
+| `Viewers.Mod` | 5 | 4 |
+| `Printer.Mod` | 5 | 5 (unchanged — see below) |
+| `MultiArrays.Mod` | 46 | 28 |
+
+`MultiArrays.Mod` drops by 18 regions — nested comments are exactly the dominant cause `NEXT.md`
+described (25 corpus files' worth), and the depth-counting scanner now swallows all of them
+(including `(** ... **)`-style ones, which are just ordinary Oberon comments with an extra
+leading/trailing `*` as content — no special-casing needed, the "does the char after `*)` — or
+before it — close the pair" check handles it for free). It doesn't reach zero because of an
+unrelated, newly-discovered gap: `POINTER TO ARRAY OF Type` (open array as a pointer's base
+type, no explicit `length`) isn't reachable through `array_type` at all — confirmed by isolating
+`TYPE P = POINTER TO ARRAY OF INTEGER;` alone, still an `ERROR`. `array_type` requires a
+`length` between `ARRAY` and `OF`; only `formal_type` (M1.2c) has the length-less `ARRAY OF`
+shorthand, and only for formal parameters. This is a real, separate grammar gap, not touched
+here — flagged in `NEXT.md` for a future round rather than picked up incidentally, since it's
+unrelated to comments and this round is already at its diff budget.
+
+`Printer.Mod` staying at 5 is a correction, not a regression: M1.2c's notes attributed one of its
+five errors to "a nested comment", but `grep -n '(\*.*(\*\|(\*\*'` finds no nested-comment
+pattern anywhere in that file — the attribution was never checked, just guessed. The five
+remaining errors are the `<*STANDARD-*>`-style bracket pragma (different delimiter, not this
+scanner's scope) and other pre-existing, unrelated lexical gaps.
+
+No `binding.gyp` changes needed (item 4 in `NEXT.md`'s task list) — `tree-sitter generate` /
+`tree-sitter test` compile `scanner.c` directly via the CLI's own `cc` invocation; this project
+still doesn't build a node addon, so there's nothing for `node-gyp` to pick up.
+
+## After M1.3
+
+M1 is feature-complete against `docs/plan.md`'s D1 scope. Remaining before M1 is declared done:
+a full-corpus parse sweep (not just the three spot-check files used through M1.1–M1.3) to get a
+real `ERROR`-free percentage — see `NEXT.md`.

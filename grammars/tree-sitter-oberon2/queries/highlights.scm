@@ -134,5 +134,6 @@
 (number) @number
 (string) @string
 (comment) @comment
+(pragma) @comment
 
 (ERROR) @error

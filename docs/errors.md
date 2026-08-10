@@ -51,3 +51,26 @@ around every alternative/element of a rule, before writing tests against it — 
 is a hard generate error, not a subtle parse bug, so it's cheap to catch immediately and
 expensive to debug later if buried under other changes. See `docs/insights.md` round 4 for the
 `choice`-of-two-non-empty-branches fix.
+
+## Round 6 — 2026-08-10
+
+### External scanner only got one chance per token, and leading whitespace burned it
+
+First version of `scanner.c` checked `lexer->lookahead != '('` and returned `false` immediately
+otherwise. This works for a comment that is the very first byte of the file, and fails for every
+other comment in existence — confirmed by `tree-sitter test`, where even the pre-existing
+two-comment corpus case (unchanged since M1.1) regressed to an `ERROR`, and by
+`tree-sitter parse --debug`, which showed `lex_external` being called exactly once at the
+position *before* the newline preceding a comment, declining (lookahead is `'\n'`, not `'('`),
+and then `lex_internal` skipping that whitespace and committing to matching a *real* grammar
+token (literal `(` used for expression grouping) instead of ever re-trying the external scanner.
+Tree-sitter does not loop "skip one whitespace char, retry external scanner, repeat" — the
+external scanner is consulted once per token boundary, before the internal DFA's own
+whitespace-skipping runs.
+
+**Mitigation:** an external scanner that has to coexist with a plain `/\s/` extra must skip its
+own leading whitespace (`while (is_space(lexer->lookahead)) lexer->advance(lexer, true);`, the
+`skip=true` argument marks the chars as not part of the token) before checking for the construct
+it's actually looking for. Confirmed via `tree-sitter parse --debug`, not guessed — the debug
+lex trace showing zero `consume character` lines for the failing `lex_external` call was the
+proof that it never even reached the whitespace, not that the whitespace confused it.

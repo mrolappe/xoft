@@ -25,7 +25,9 @@ const
 module.exports = grammar({
   name: 'oberon2',
 
-  extras: $ => [$.comment, /\s/],
+  externals: $ => [$.comment, $.pragma],
+
+  extras: $ => [$.comment, $.pragma, /\s/],
 
   word: $ => $.ident,
 
@@ -583,7 +585,5 @@ module.exports = grammar({
     kProcedure: $ => 'PROCEDURE',
 
     ident: $ => token(identifier),
-
-    comment: $ => token(seq(/[(][*]([^*]*[*]+[^)*])*[^*]*[*]+[)]/)),
   }
 });

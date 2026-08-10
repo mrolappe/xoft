@@ -8,9 +8,45 @@ MODULE Comment;
 END Comment.
 ---
 
-(module 
-  (comment) 
+(module
   (comment)
+  (comment)
+  (module_header
+    (kModule)
+    (ident))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====
+nested comment
+====
+
+(* outer (* inner *) still outer *)
+MODULE NestedComment;
+END NestedComment.
+---
+
+(module
+  (comment)
+  (module_header
+    (kModule)
+    (ident))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====
+pragma
+====
+
+(*$-k *)
+MODULE Pragma;
+END Pragma.
+---
+
+(module
+  (pragma)
   (module_header
     (kModule)
     (ident))

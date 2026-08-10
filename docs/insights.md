@@ -189,3 +189,47 @@ byte-for-byte "before" `ERROR`-count comparison to rule out regressions on const
 didn't touch: a `choice`/`repeat1` addition can only turn some previous `ERROR`s into successful
 parses, never the reverse. Worth remembering as a fast regression argument for this class of
 grammar change, in place of an expensive full-corpus diff.
+
+## Round 6 — 2026-08-10
+
+### `git stash` as a cheap oracle for "did my change actually help"
+
+M1.3's real value is hard to see from `tree-sitter test` alone (corpus tests only prove the two
+new cases work, not that the scanner improved anything on real files). `git stash` /
+`git stash pop` around a `tree-sitter generate && tree-sitter parse <file>` gave an exact
+before/after `ERROR`-region count on the same file with a two-command round trip — cheaper and
+more reliable than trying to remember or reconstruct what the old regex-token comment rule did.
+Worth reaching for whenever a change's effect is "fewer parse errors on real input" rather than
+"this specific corpus case now passes" — the corpus test proves the mechanism, the stash-diff
+proves the impact.
+
+### A milestone-scoping question the plan doc had already answered
+
+`NEXT.md` flagged "check whether the `(*$…*)` pragma is actually in scope for M1.3" as an open
+question. `docs/plan.md`'s M1 milestone table had the answer on the same line as the scanner
+task: "M1.3 External C scanner: nested comments + `(*$…*)` pragma node". The question was
+answerable by re-reading the planning doc more carefully, not by making a judgment call — worth
+checking the milestone table's own row text before treating an ambiguity flagged by a previous
+round as still open.
+
+### A previous round's causal attribution for a residual `ERROR` was wrong a second time
+
+Round 5's insights already logged one misdiagnosed `ERROR` (attributed to `SET`, actually
+`field_list_seq`). `NEXT.md` carried forward another one for this round: "`Printer.Mod`... a
+nested comment... M1.3 scope". After M1.3, `Printer.Mod`'s `ERROR` count didn't move (5 before,
+5 after) — and grepping the file directly for any `(*...(*` nesting pattern found none at all.
+The construct named in the attribution never occurred in the file. Same lesson as round 5, worse
+this time because the wrong attribution had already survived one full round unchallenged: an
+`ERROR`-cause guess written under time pressure needs to be checked (isolate the construct, or
+just grep for it) before it's repeated as fact in a later round's task brief.
+
+### Depth-count simulation in a throwaway script beats staring at a giant diff
+
+When `MultiArrays.Mod` still showed the entire file wrapped in one `(ERROR [0,0]-[747,0])` after
+the scanner fix, the instinct was to suspect the new scanner. A ten-line Python script
+re-implementing the same depth-counting algorithm over the actual file content (not the grammar,
+just the raw bytes) proved the comments were perfectly balanced — 35 matched pairs, zero
+unterminated. That ruled out the scanner in under a minute and pointed straight at a genuinely
+separate cause (an unrelated `array_type` gap). Reproducing a suspect algorithm standalone
+against the real input is a fast way to separate "my new code is broken" from "something else,
+upstream or downstream, is broken" without adding printf/debug builds to the scanner itself.
