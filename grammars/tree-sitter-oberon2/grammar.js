@@ -486,9 +486,11 @@ module.exports = grammar({
       $.kEnd
     ),
 
-    // case_statement = "CASE" expression "OF" case {"|" case} "END"
+    // case_statement = "CASE" expression "OF" case {"|" case} ["ELSE" statement_seq] "END"
     case_statement: $ => seq(
-      $.kCase, $.expression, $.kOf, optional($.case_clause), repeat(seq('|', optional($.case_clause))), $.kEnd
+      $.kCase, $.expression, $.kOf, optional($.case_clause), repeat(seq('|', optional($.case_clause))),
+      optional(seq($.kElse, optional($.statement_seq))),
+      $.kEnd
     ),
 
     // case = [case_label_list ":" statement_sequence]

@@ -579,6 +579,101 @@ END M.
     (ident)))
 
 ===================
+Case Statement With Else
+===================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    CASE x OF
+      1: y := 1
+    | 2: y := 2
+    ELSE y := 3
+    END
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (case_statement
+              (kCase)
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (designator
+                        (qualident
+                          (ident)))))))
+              (kOf)
+              (case_clause
+                (case_label_list
+                  (label_range
+                    (label
+                      (integer))))
+                (statement_seq
+                  (statement
+                    (assignment
+                      (designator
+                        (qualident
+                          (ident)))
+                      (expression
+                        (simple_expression
+                          (term
+                            (factor
+                              (number
+                                (integer))))))))))
+              (case_clause
+                (case_label_list
+                  (label_range
+                    (label
+                      (integer))))
+                (statement_seq
+                  (statement
+                    (assignment
+                      (designator
+                        (qualident
+                          (ident)))
+                      (expression
+                        (simple_expression
+                          (term
+                            (factor
+                              (number
+                                (integer))))))))))
+              (kElse)
+              (statement_seq
+                (statement
+                  (assignment
+                    (designator
+                      (qualident
+                        (ident)))
+                    (expression
+                      (simple_expression
+                        (term
+                          (factor
+                            (number
+                              (integer)))))))))
+              (kEnd))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===================
 Multi Digit Hex Literal
 ===================
 

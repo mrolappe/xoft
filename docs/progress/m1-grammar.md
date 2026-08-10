@@ -544,3 +544,37 @@ bodied/bodiless files and files with unrelated `STRUCT` usage elsewhere were und
 M1 is still below its ≥95% exit criterion (36.36%). No candidates queued yet — next round should
 re-sample `sweep_corpus.py`'s remaining 504 failures fresh, same method as this round and round
 11.
+
+## M1.4 continued — `CASE ... ELSE ... END` ✅ (round 13, 2026-08-10)
+
+Sampled `sweep_corpus.py -v`'s whole-file `ERROR [0, 0]` failures across corpus roots, per
+`NEXT.md`'s method. `amiga-oberon-31/Interfaces/*.mod` samples all failed on `STRUCT`/`UNTRACED
+POINTER`, already scoped out of M1 (round 9) — skipped rather than rediscovered. A `voc` sample
+(`ulmSysIO.Mod`) failed on a different, narrower construct: `CASE whence OF |fromPos: ... |fromEnd:
+... ELSE relativity := Platform.SeekSet END`. The leading `|` before the first case and the
+label-range cases already parsed fine (round 4's work); the failure was specifically the `ELSE`
+arm, which `case_statement` in `grammar.js` never accepted.
+
+Checked `docs/language-baseline.md` line 94 before implementing, per `NEXT.md`'s "cross-check
+against the baseline before assuming in-scope" instruction — `Case Statement = CASE Expr OF Case
+{"|" Case} [ELSE StatementSeq] END` already includes `[ELSE StatementSeq]` in the *normative*
+Oberon-2 EBNF. This is not an AmigaOberon/dialect extension the way `STRUCT` or `ASSEMBLER` are;
+`case_statement`'s missing `ELSE` arm was a plain grammar gap against baseline Oberon-2, not a
+scoping question — no need to flag it to the user the way round 9 did.
+
+**Grammar change:** `case_statement` gained `optional(seq($.kElse, optional($.statement_seq)))`
+before the closing `$.kEnd`, mirroring `if_statement`'s existing `ELSE` handling immediately
+above it in `grammar.js`. No new external token, no conflicts.
+
+New corpus test: `statements.txt` "Case Statement With Else", modeled on the existing "Case Label
+Range" test's tree shape (hand-written by analogy rather than `--update`-generated, since the
+shape — `case_clause`, `case_clause`, `kElse`, `statement_seq`, `kEnd` — was already visible
+verbatim in the neighboring `if_statement` pattern and the preceding case test; round 8's
+insight about hand-writing trees from guessed rule shapes doesn't apply when a structurally
+identical case is right there to copy). Confirmed red before the grammar change, green after.
+`tree-sitter test`: 47/47 green (46 before this round + 1 new).
+
+**Impact:** `sweep_corpus.py` 36.36% → 39.39% (288 → 312 of 792 passing), +24 files.
+
+M1 is still below its ≥95% exit criterion (39.39%). No candidates queued — next round should
+re-sample `sweep_corpus.py`'s remaining 480 failures fresh, same method as this round.

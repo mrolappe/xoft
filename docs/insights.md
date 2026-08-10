@@ -412,3 +412,29 @@ procedures or pairing `STRUCT` elsewhere with an unrelated bodiless procedure. T
 the number in advance beyond "some more than files matching cleanly." When a NEXT.md count is
 explicitly caveated as an undercount, don't round it up by guesswork either; just implement and
 re-measure, per the task's existing "before/after" instruction.
+
+## Round 13 — 2026-08-10
+
+### Not every corpus-observed gap is a scoping question — check the baseline before asking
+
+Rounds 9 and 11 both encountered constructs the grammar didn't handle and treated the "is this
+in scope for M1" question carefully: round 9 flagged `STRUCT`/`ASSEMBLER` to the user because
+they're AmigaOberon-specific dialect extensions, absent from `docs/language-baseline.md`
+entirely. This round's `CASE ... ELSE ... END` looked superficially similar (an unhandled
+construct found via corpus sampling) but turned out to already be in the *normative* Oberon-2
+EBNF (`docs/language-baseline.md` line 94: `Case Statement = ... [ELSE StatementSeq] END`) — the
+grammar was simply incomplete against its own stated baseline, not facing a dialect-scope
+decision. The distinguishing check is cheap and should run before treating any new-looking
+construct as a scoping question: grep the baseline doc for it first. If it's already normative,
+just implement it; only escalate when the baseline doc doesn't have it at all.
+
+### A structurally identical neighboring rule is a legitimate substitute for `--update`
+
+Round 8's insight ("hand-writing an expected S-expression from rule names alone will get the
+shape wrong, generate it instead") doesn't forbid hand-writing in general — it forbids
+*guessing* the shape from `grammar.js` alone. This round's new `ELSE` arm in `case_statement`
+produces the exact same `(kElse) (statement_seq ...)` shape that `if_statement`'s existing tests
+already show a few hundred lines up in the same file, and the surrounding `case_clause` shape
+was already in the immediately preceding test. Copying both verbatim and hand-assembling the new
+test passed on the first `tree-sitter test` run — no `--update` round-trip needed. The rule is
+"don't guess a shape you haven't seen," not "always regenerate."
