@@ -325,3 +325,23 @@ the normal workflow re-examines foundational assumptions — only "does this fil
 gets checked repeatedly, not "is the premise about what this file even is still right." Worth
 periodically asking whether a load-bearing claim in `docs/plan.md` or `docs/language-baseline.md`
 has ever actually been checked against the corpus, versus just asserted early and repeated.
+
+### Round 9: an error message is a primary source for a dialect's own grammar
+
+Confirming the bracket-pragma sub-forms didn't need corpus archaeology at all — Oberon-A's own
+`ErrorMessages.mod` contains the string `"Pragma must start with '<*$'"`, i.e. the compiler
+itself documents that `$` is the canonical pragma marker and (by implication) bare `<* FLAG *>`
+is a tolerated shorthand. When a dialect's original compiler source is sitting right there in the
+corpus root, its diagnostic strings, error catalogs (`.ct`/`.cd` files in Oberon-A's case), and
+comments are a higher-confidence source than reverse-engineering the grammar from usage samples
+alone — worth a targeted grep before assuming corpus-sample-only triage is as good as it gets.
+
+### Round 9: "confirm real syntax before coding" scales down to "confirm it's simple," not just "confirm it's real"
+
+`ASSEMBLER` and brace annotations were both unconfirmed going into this round. Investigating both
+before asking the user to scope anything (per `NEXT.md`'s explicit instruction) didn't just
+avoid a wrong implementation — it changed the shape of the scoping question itself: brace
+annotations turned out cheap enough that "should we do this" barely needed asking, while
+`ASSEMBLER`'s confirmed raw-assembly-block shape immediately signalled "this needs scanner work,
+size it separately." The investigation step produces the options the scoping question offers,
+not just a yes/no on the item as originally described.

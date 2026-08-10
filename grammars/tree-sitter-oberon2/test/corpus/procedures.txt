@@ -53,3 +53,47 @@ END Procedures.
     (module_footer
       (kEnd)
       (ident)))
+
+=========================
+Procedure With Vector Offset
+=========================
+
+MODULE Procedures;
+  PROCEDURE BinKoeff*{base,-54}(n{2},k{3}: LONGINT): LONGINT;
+  END BinKoeff;
+END Procedures.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (vector_offset
+          (ident)
+          (integer))
+        (formal_params
+          (fp_section
+            (ident)
+            (param_offset
+              (integer))
+            (ident)
+            (param_offset
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))
+      (procedure_body
+        (kEnd))
+      (ident)))
+    (module_footer
+      (kEnd)
+      (ident)))

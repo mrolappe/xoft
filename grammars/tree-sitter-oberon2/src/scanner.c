@@ -4,6 +4,7 @@
 enum TokenType {
   COMMENT,
   PRAGMA,
+  BRACKET_PRAGMA,
 };
 
 void *tree_sitter_oberon2_external_scanner_create(void) { return NULL; }
@@ -19,7 +20,7 @@ static bool is_space(int32_t c) {
 }
 
 bool tree_sitter_oberon2_external_scanner_scan(void *payload, TSLexer *lexer, const bool *valid_symbols) {
-  if (!valid_symbols[COMMENT] && !valid_symbols[PRAGMA]) return false;
+  if (!valid_symbols[COMMENT] && !valid_symbols[PRAGMA] && !valid_symbols[BRACKET_PRAGMA]) return false;
 
   // The internal lexer only calls back into the external scanner once, before
   // it tries to skip whitespace itself — so this scanner must skip its own
@@ -27,6 +28,36 @@ bool tree_sitter_oberon2_external_scanner_scan(void *payload, TSLexer *lexer, co
   // sees a comment that isn't the very next byte.
   while (is_space(lexer->lookahead)) {
     lexer->advance(lexer, true);
+  }
+
+  if (lexer->lookahead == '<') {
+    // AmigaOberon/Oberon-A dialect extension (not in normative EBNF): a
+    // "<* ... *>" bracket pragma, confirmed via corpus grep to hold either
+    // bare compiler-switch flags ("<* STANDARD- *>") or "$"-prefixed
+    // sub-pragmas ("<*$LongVars-*>") — same lexical family as "(*$...*)"
+    // but a different delimiter, and never seen nested.
+    lexer->advance(lexer, false);
+    if (lexer->lookahead != '*') return false;
+    lexer->advance(lexer, false);
+
+    for (;;) {
+      if (lexer->eof(lexer)) return false;
+
+      if (lexer->lookahead == '*') {
+        lexer->advance(lexer, false);
+        if (lexer->lookahead == '>') {
+          lexer->advance(lexer, false);
+          break;
+        }
+        continue;
+      }
+
+      lexer->advance(lexer, false);
+    }
+
+    lexer->result_symbol = BRACKET_PRAGMA;
+    lexer->mark_end(lexer);
+    return true;
   }
 
   if (lexer->lookahead != '(') return false;

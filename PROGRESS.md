@@ -5,7 +5,7 @@ Overall state of the xoft MVP. One line per milestone; details in the per-phase 
 | Milestone | State | Detail |
 |---|---|---|
 | M0 — Foundations | ✅ done | [docs/progress/m0-foundations.md](docs/progress/m0-foundations.md) |
-| M1 — Grammar | 🟨 in progress (M1.1, M1.2a, M1.2b, M1.2c, M1.3, M1.5 done; M1.4 sweep tool + `INLINE` done, ≥95% exit criterion not yet met — 21.97%, see below) | [docs/progress/m1-grammar.md](docs/progress/m1-grammar.md) |
+| M1 — Grammar | 🟨 in progress (M1.1, M1.2a, M1.2b, M1.2c, M1.3, M1.5 done; M1.4 sweep tool + `INLINE` + bracket pragmas + brace annotations done, ≥95% exit criterion not yet met — 27.15%, see below) | [docs/progress/m1-grammar.md](docs/progress/m1-grammar.md) |
 | M2 — Core: lossless parse/serialize | ⬜ not started | — |
 | M3 — Diagnostics and CLI | ⬜ not started | — |
 | M4 — Corpus runner | ⬜ not started | — |
@@ -30,3 +30,4 @@ Cross-cutting records: [insights](docs/insights.md) · [errors and mitigations](
 | 6 | 2026-08-10 | M1.3 — external C scanner for nested comments + `(*$…*)` pragma node; `.gitignore` fix so `scanner.c` is tracked |
 | 7 | 2026-08-10 | Infra: generated tree-sitter output moved to `gen-src/` (gitignored), `src/` now holds only hand-written `scanner.c` plus symlinks into `gen-src/` so `tree-sitter test`/`parse` keep working unmodified |
 | 8 | 2026-08-10 | M1.4 — corpus sweep script (`sweep_corpus.py`), first honest full-corpus number (15.78% → 21.97%); fixed `ELSIF`/`ELSEIF` keyword typo, hex-integer-literal token bug (this is what actually blocked `INLINE`, which needed no new grammar), two AmigaOberon `IMPORT` rename/re-export variants; triaged (not fixed) bracket pragmas (212 files), `STRUCT`, brace-annotated procedures, `ASSEMBLER` |
+| 9 | 2026-08-10 | M1.4 continued — scoping decision flagged to and resolved by user (`STRUCT` deferred to Phase 2, `ASSEMBLER` deferred pending scanner work); implemented `<* ... *>` bracket pragmas (third external scanner token) and AmigaOberon brace annotations (`vector_offset`, `param_offset`); 21.97% → 27.15% (174 → 215/792) |

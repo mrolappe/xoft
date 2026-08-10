@@ -317,3 +317,68 @@ materially bigger scope than "add `INLINE`" ever was, and — per D8's 5%-of-cor
 (≈40 files) — cannot be closed by allowlisting alone; most of this has to become grammar. Each
 needs a scoping decision (grammar addition vs. allowlist vs. explicitly out-of-D1-scope) before
 the next round picks one to implement — see `NEXT.md`.
+
+## M1.4 continued — bracket pragmas + brace annotations ✅ (round 9, 2026-08-10)
+
+Per `NEXT.md`'s instruction, flagged the scoping decision to the user before implementing
+anything (four triaged patterns, very different amounts of work). Decided: `STRUCT` deferred to
+Phase 2 (genuine second record-like type, bigger than D1's "lexical superset" scope). Bracket
+pragmas and brace annotations picked for this round (both lexical-superset-tier, cheap to
+moderate). `ASSEMBLER` deliberately not picked — still triaged only, see below.
+
+**Confirmed real syntax before writing any grammar rule** (same discipline as M1.4's `INLINE`
+lesson), by grepping the actual corpus roots per `corpus/roots.toml`:
+
+- **`ASSEMBLER`** (STJ, 32 files) — genuine block syntax, `ASSEMBLER <raw M68K opcodes> END` used
+  as a statement inside a procedure body. Content is not Oberon tokens at all (opcodes, register
+  names, `(A0,D0.L)`-style addressing, `#imm`) — needs external-scanner treatment (raw-scan to a
+  matching `END`), same technique class as the nested-comment scanner, not a plain grammar rule.
+  Left triaged, not implemented, this round — see `NEXT.md`.
+- **Brace annotations** (AmigaOberon, 42 files) — confirmed simple: `PROCEDURE Name
+  *{base,-54}(param{2}: T): T`. A `{ident, "-" integer}` group after the procedure's `ident_def`
+  (base name varies: `base`, `cwBase`, ...; offset always negative, decimal or hex), and a bare
+  `{integer}` after each formal parameter's `ident`. No nesting, no scanner work.
+- **Bracket pragmas `<* ... *>`** (Oberon-A only, 212 files) — confirmed two sub-forms sharing
+  one delimiter: bare flags (`<* STANDARD- *>`) and `$`-prefixed sub-pragmas (`<*$LongVars-*>`
+  — the Oberon-A compiler's own error message, `"Pragma must start with '<*$'"`, found via grep
+  of `ErrorMessages.mod`, confirms `$` as the "real" pragma marker and bare flags as a shorthand
+  form). Also holds conditional-compilation directives (`<*IF OberonA THEN*>`, `<*ELSE*>`,
+  `<*END*>`) — per D1 these are swallowed opaquely, same as `(*$...*)`, not given real
+  conditional-compilation semantics. Confirmed non-nesting across every corpus occurrence
+  (`grep -rzoE '<\*[^>]*<\*'` found none).
+
+**Grammar changes**, both test-first (`tree-sitter test` red before, green after):
+
+- `src/scanner.c`: third external token `BRACKET_PRAGMA`, alongside the existing `COMMENT`/
+  `PRAGMA`. Same shape as the `(* ... *)` handler but for `<* ... *>` and without depth tracking
+  (confirmed non-nesting, so a flat scan to the first `*>` is correct — no need to carry the
+  `(*...*)` handler's nesting-depth counter into this one).
+- `grammar.js`: `$.bracket_pragma` added to `externals`/`extras` (enum order in `scanner.c` must
+  match the `externals` array order — `[$.comment, $.pragma, $.bracket_pragma]` mirrors
+  `{COMMENT, PRAGMA, BRACKET_PRAGMA}`). New rules `vector_offset` (spliced into
+  `procedure_heading` after `ident_def`, before `formal_params`) and `param_offset` (spliced
+  into `fp_section` after each parameter `ident`). `forward_decl` left unchanged — corpus grep
+  found no brace-annotated forward declarations.
+
+New corpus tests: `comments.txt` "bracket pragma", "bracket pragma dollar sub-pragma";
+`procedures.txt` "Procedure With Vector Offset" (covers both `vector_offset` and `param_offset`
+in one case, the real `BinKoeff*{base,-54}(n{2},k{3}: LONGINT)` shape). `tree-sitter test`:
+42/42 green (39 before this round + 3 new).
+
+**Impact:** `sweep_corpus.py` 21.97% → 27.15% (174 → 215 of 792 passing), the single largest
+jump since the M1.4 hex-literal fix.
+
+**Triage table, updated:**
+
+| Pattern | Corpus files | Status |
+|---|---|---|
+| `<* ... *>` bracket pragmas | 212 | ✅ done this round |
+| Brace annotations (`*{base,-N}` / `param{N}`) | 42 | ✅ done this round |
+| `STRUCT` record variant | 43 | Scoped out of M1 — Phase 2 (`corpus/allowlist.toml` or a later milestone) |
+| `ASSEMBLER` blocks | 32 (STJ only) | Still triaged only — needs external-scanner work, not picked this round |
+| `POINTER TO ARRAY OF Type` | not re-measured | Carried over from M1.3, still open |
+| Single-quoted strings | not re-measured | Carried over from M1.2c, still unconfirmed as an actual failure cause |
+
+M1 is still below its ≥95% exit criterion (27.15%). `ASSEMBLER` is now the largest unimplemented
+cluster with confirmed real syntax; `STRUCT` is explicitly out of scope. Next round: implement
+`ASSEMBLER` (needs scanner work) or re-measure the two carried-over items, per `NEXT.md`.

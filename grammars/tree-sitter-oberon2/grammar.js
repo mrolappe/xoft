@@ -25,9 +25,9 @@ const
 module.exports = grammar({
   name: 'oberon2',
 
-  externals: $ => [$.comment, $.pragma],
+  externals: $ => [$.comment, $.pragma, $.bracket_pragma],
 
-  extras: $ => [$.comment, $.pragma, /\s/],
+  extras: $ => [$.comment, $.pragma, $.bracket_pragma, /\s/],
 
   word: $ => $.ident,
 
@@ -217,13 +217,19 @@ module.exports = grammar({
       ))
     ),
 
-    // fp_section = ["VAR"] ident {"," ident} ":" formal_type
+    // fp_section = ["VAR"] ident [param_offset] {"," ident [param_offset]} ":" formal_type
     fp_section: $ => seq(
       optional($.kVar),
-      $.ident, repeat(seq(',', $.ident)),
+      $.ident, optional($.param_offset),
+      repeat(seq(',', $.ident, optional($.param_offset))),
       ':',
       $.formal_type
     ),
+
+    // param_offset = "{" integer "}"
+    // AmigaOberon dialect extension: per-parameter vector-offset metadata paired with
+    // a procedure's vector_offset, e.g. `PROCEDURE Foo(x{2}: LONGINT)`.
+    param_offset: $ => seq('{', $.integer, '}'),
 
     // formal_type = {"ARRAY" "OF"} (qualident | procedure_type)
     // The report's FPSection uses full Type (Qualident | ARRAY OF Type | RECORD... |
@@ -262,9 +268,18 @@ module.exports = grammar({
       $.procedure_heading, ';', $.procedure_body, $.ident
     ),
 
-    // procedure_heading = "PROCEDURE" [receiver] ident_def [formal_params]
+    // procedure_heading = "PROCEDURE" [receiver] ident_def [vector_offset] [formal_params]
     procedure_heading: $ => seq(
-      $.kProcedure, optional($.receiver), $.ident_def, optional($.formal_params)
+      $.kProcedure, optional($.receiver), $.ident_def, optional($.vector_offset), optional($.formal_params)
+    ),
+
+    // vector_offset = "{" ident "," "-" integer "}"
+    // AmigaOberon dialect extension (not in normative EBNF, confirmed via corpus): a
+    // library base-relative vector-offset annotation on a procedure heading, e.g.
+    // `PROCEDURE Foo*{base,-54}(...)`. The base name varies ("base", "cwBase", ...);
+    // the offset is always negative and may be decimal or hex.
+    vector_offset: $ => seq(
+      '{', $.ident, ',', '-', $.integer, '}'
     ),
 
     // receiver = "(" ["VAR"] ident ":" ident ")"

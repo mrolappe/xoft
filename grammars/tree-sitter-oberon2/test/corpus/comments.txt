@@ -54,3 +54,39 @@ END Pragma.
     (kEnd)
     (ident)))
 
+====
+bracket pragma
+====
+
+<* STANDARD- *>
+MODULE BracketPragma;
+END BracketPragma.
+---
+
+(module
+  (bracket_pragma)
+  (module_header
+    (kModule)
+    (ident))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====
+bracket pragma dollar sub-pragma
+====
+
+<*$LongVars-*>
+MODULE BracketPragmaDollar;
+END BracketPragmaDollar.
+---
+
+(module
+  (bracket_pragma)
+  (module_header
+    (kModule)
+    (ident))
+  (module_footer
+    (kEnd)
+    (ident)))
+
