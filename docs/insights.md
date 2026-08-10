@@ -553,3 +553,36 @@ alternatives to `&`/`~` are neither: same semantics, same grammar position, one 
 each, squarely inside D1's "lexical superset" scope. Implemented directly, same as round 13's
 `CASE...ELSE` (already-normative) — the distinguishing question is "does this need new structure
 or scanner work", not "is this dialect-specific".
+
+### tree-sitter has no lookahead/lookbehind — disambiguate ambiguous lexemes by tightening the grammar, not the regex
+
+The real-number-vs-range bug (round 18: `2..4` mis-tokenized as `real` "2." + "." + "4") looks
+like a textbook job for a negative lookahead (`2\.(?!\.)`) after the decimal point. tree-sitter
+can't express that: it compiles token rules through Rust's `regex` crate, which excludes
+lookaround by design (it's incompatible with the linear-time guarantee). The fix instead has to
+change what the grammar *accepts* — here, requiring at least one digit after the `.` so `real`
+stops being a candidate match for `2.` in the first place. Before reaching for this kind of
+grammar-shape fix, check whether the stricter language is actually true to the corpus (grepped
+all four roots for genuine bare-`N.`-reals first — found none, all matches were false positives
+from identifiers containing digits) — tightening a token rule is only safe when nothing real
+relies on the looser form.
+
+### One new construct can be gated behind another — don't stop at the first fix that changes the error location
+
+AmigaOberon's `Alerts.mod` kept failing at the exact same line after adding
+`curly_external_code_names` (round 18) — the error span was identical before and after. Isolating
+a minimal repro of *just* the fix confirmed it worked in isolation; the file still failed because
+a second, unrelated construct (`data{9}..: SYSTEM.ADDRESS`, `param_offset` needing the same `..`
+varargs marker `reg_spec` already had) sat immediately after it on the same procedure heading.
+Two constructs stacked in the same span read like one fix "not working" when it's really two
+fixes needed — bisect with a reduced repro of the fix alone before concluding it failed.
+
+### Grepping a corpus root for a suffix/token pattern can accidentally match compiled binaries in the same directory
+
+A plain `grep -rlas '[0-9A-F]+U\b'` over `amiga-oberon-31` (round 18, chasing the `U` hex suffix)
+matched dozens of `.OBJ`/binary files whose garbled byte content coincidentally contains the
+pattern — noise that looked like a much bigger cluster than it was. Adding `--include='*.mod'`
+cut it down to the 7 genuine source-file hits. Worth remembering as the inverse of round 17's
+"grep binaries on purpose for a keyword table" trick: when the corpus root mixes source and
+compiled artifacts (common in these retro-Oberon roots), an unscoped grep can't tell the
+difference and will over-count.

@@ -764,3 +764,74 @@ M1 is still below its ≥95% exit criterion (66.41%). Post-fix root breakdown: `
 no longer the most *disproportionately* unsampled — `amiga-oberon-31` (92 failures, last
 dedicated round was round 12) and `voc` (43, never sampled) are the natural next candidates.
 `stj` itself likely has more clusters left (59 files) and could also be resampled fresh.
+
+## M1.4 continued — AmigaOberon 3.1 cluster: CLOSE, typed sets, real/range lexer bug, U-hex, curly names, param varargs (round 18, 2026-08-10)
+
+First dedicated sampling pass over `amiga-oberon-31` since round 12 (92 failures, per round 17's
+note the natural next candidate over `stj`/`voc`). Tallied failures by root first to confirm the
+picture still held, then filtered out files containing `STRUCT`/`UNTRACED` (60 of 92 — still
+scoped out to Phase 2 per round 9) to find the actual next cluster among the remaining 32.
+
+Six grammar changes this round, all test-first (`tree-sitter test` red before, green after each):
+
+1. **Module-level `CLOSE` section.** `BootBlock.mod`-adjacent files showed a `CLOSE` keyword
+   between a module's `BEGIN` statement sequence and its `END` — a finalizer section run on
+   module unload, confirmed via corpus grep (45 files, always paired with a preceding `BEGIN` in
+   the same file, never standalone). Not in `docs/language-baseline.md` — genuine AmigaOberon
+   dialect extension. `module`'s `BEGIN` arm gained `optional(seq($.kClose,
+   optional($.statement_seq)))` after the existing `optional($.statement_seq)`; new keyword
+   token `kClose => 'CLOSE'`. No conflicts.
+2. **Typed set constructor** `LONGSET{...}` / `SHORTSET{...}` — AmigaOberon's fixed-width SET
+   types (16-bit `SHORTSET`, 32-bit `LONGSET`) used both as ordinary type names (formal params,
+   return types — already handled generically via `qualident`) and as a constructor prefix
+   directly before a `{...}` set literal. New `typed_set: $ => seq($.qualident, $.set)` rule,
+   added as a `factor` sibling of the existing bare `$.set`. No conflicts — `{` is never a valid
+   `selector` continuation after a designator, so no ambiguity with the `seq($.designator,
+   optional($.actual_params))` factor branch.
+3. **Real-number/range lexer bug** (affects all four corpus roots, not just AmigaOberon): writing
+   the typed-set test with a range element (`LONGSET{1, 2..4}`) exposed a pre-existing bug —
+   `real`'s grammar (`digit {digit} "." {digit} [ScaleFactor]`) allows zero digits after the
+   `.`, so the lexer's maximal-munch greedily matches `2.` as a bare real literal, leaving only
+   one `.` where `element`'s `".." expression` needs two. `label_range` (CASE label ranges)
+   never hit this because `label` uses `$.integer` directly, not `$.number`/`real` — only
+   `element` (used by `set`) goes through `number`. Grepped all four corpus roots for genuine
+   bare-`N.`-real usage (found none — matches were all false positives from identifiers
+   containing digits, e.g. `VT100.ED`); tree-sitter has no lookahead/lookbehind support (Rust's
+   `regex` crate excludes it by design) so an external-scanner fix wasn't attempted for what
+   turned out to be unnecessary. Fix: require at least one digit after the `.` (`real`'s
+   fractional part changed from `repeat(digit)` to `digit, repeat(digit)`), which matches
+   how real Oberon code is actually written and removes the ambiguity outright.
+4. **Unsigned hex integer literal**, `U` suffix as a sibling of the existing `H` suffix (e.g.
+   `016C0U`), used throughout for raw machine-code words passed to `SYSTEM.INLINE` and hex
+   bit-mask constants (7 source files, confirmed via `grep --include='*.mod'` after first ruling
+   out false positives from grepping compiled `.OBJ`/binary siblings in the same directories).
+   `integer` gained `token(seq(digit, repeat(hex_digit), 'U'))` as a third choice arm.
+5. **Curly-brace external code names**, `{"Alerts.AlertDummy"}` on a procedure heading — a
+   curly-brace sibling of Oberon-A's existing square-bracket `external_code_names`
+   (`["_Foo"]`). Only 3 occurrences in this root but blocked full-file parses. New
+   `curly_external_code_names: $ => seq('{', $.string, repeat(seq(',', $.string)), '}')`,
+   added to `procedure_heading`'s existing `choice($.vector_offset, $.square_vector_offset,
+   $.external_code_names, ...)` slot. No conflict with `vector_offset` (also `{`-led) since
+   their first token differs (string vs. ident).
+6. **`param_offset` varargs marker.** Fixing #5 above still left `Alerts.mod` failing at the
+   same procedure heading — bisected to `data{9}..: SYSTEM.ADDRESS`, a trailing `..` after a
+   parameter's curly-brace `param_offset`, mirroring the `..` that Oberon-A's square-bracket
+   `reg_spec` already supports (round 14) but `param_offset` never gained. `param_offset` grew
+   `optional('..')` after its closing `}`.
+
+New corpus tests, one per construct: `module.txt` "module begin close end";
+`statements.txt` "AmigaOberon typed set constructor" and "AmigaOberon unsigned hex literal";
+`procedures.txt` "Procedure With Curly External Code Name" and "Procedure With Param Offset
+Varargs Marker". `tree-sitter test`: 62/62 green (56 before this round + 6 new).
+
+**Impact:** `sweep_corpus.py` 66.41% → 69.95% (526 → 554 of 792 passing), +28 files. Root
+breakdown of the delta: `amiga-oberon-31` 92 → 73 (-19, all six fixes), but `oberon-a` 72 → 67
+(-5), `stj` 59 → 57 (-2), and `voc` 43 → 41 (-2) also dropped — confirms fix #3 (the real/range
+lexer bug) was genuinely cross-dialect, not AmigaOberon-specific, unlike fixes #1/#2/#4/#5/#6.
+
+M1 is still below its ≥95% exit criterion (69.95%). `amiga-oberon-31`'s remaining 73 failures:
+60 are `STRUCT`/`UNTRACED` (Phase 2 scope, unchanged), 13 are not. Sampled one of the 13
+(`Demos/Sparks.mod`) far enough to find the next lead: `Ciapra[0BFE001H]: SHORTSET;` in a
+`VAR` section — a square-bracket absolute hardware-address annotation on a variable
+declaration, structurally new (no existing `var_decl` grammar slot for it) but not implemented
+this round.

@@ -22,9 +22,14 @@ const
   scale_factor = seq('E', choice('+', '-'), digit, repeat(digit)),
 
   // real = digit {digit} "." {digit} [scale_factor]
+  // The report allows zero digits after the "." (bare "2."), but no real-world corpus code
+  // relies on that, and it makes "2." ambiguous with the range operator's leading digit in
+  // "2..4" — the maximal-munch lexer would greedily swallow the first "." into `real`,
+  // leaving one "." where `element`'s ".." literal needs two. Requiring at least one digit
+  // after the "." disambiguates without an external scanner.
   real = seq(
-    digit, repeat(digit), '.', 
-    repeat(digit), optional(scale_factor)
+    digit, repeat(digit), '.',
+    digit, repeat(digit), optional(scale_factor)
   );
 
 module.exports = grammar({
@@ -57,9 +62,13 @@ module.exports = grammar({
         optional($.import_list),
         repeat(choice($.const_decls, $.type_decls, $.variable_decls)),
         repeat($.procedure_decls),
+        // AmigaOberon dialect extension (not in normative EBNF, confirmed via corpus): a
+        // module-level "CLOSE" section after "BEGIN", holding a finalizer statement sequence
+        // run on module unload.
         optional(seq(
           $.kBegin,
-          optional($.statement_seq)
+          optional($.statement_seq),
+          optional(seq($.kClose, optional($.statement_seq)))
         )),
         $.module_footer
       ),
@@ -251,10 +260,11 @@ module.exports = grammar({
       $.formal_type
     ),
 
-    // param_offset = "{" integer "}"
+    // param_offset = "{" integer "}" [".."]
     // AmigaOberon dialect extension: per-parameter vector-offset metadata paired with
-    // a procedure's vector_offset, e.g. `PROCEDURE Foo(x{2}: LONGINT)`.
-    param_offset: $ => seq('{', $.integer, '}'),
+    // a procedure's vector_offset, e.g. `PROCEDURE Foo(x{2}: LONGINT)`. Trailing ".." is
+    // reg_spec's varargs marker, sibling here too (e.g. `data{9}..: SYSTEM.ADDRESS`).
+    param_offset: $ => seq('{', $.integer, '}', optional('..')),
 
     // reg_spec = "[" integer "]" [".."]
     // Oberon-A dialect extension (docs/OC.doc "RegPars"): square-bracket sibling of
@@ -308,7 +318,10 @@ module.exports = grammar({
     // be assigned to a procedure variable without being exported, e.g. `PROCEDURE* [0] Foo`.
     procedure_heading: $ => seq(
       $.kProcedure, optional($.kStar), optional($.sysflag), optional($.receiver), $.ident_def,
-      optional(choice($.vector_offset, $.square_vector_offset, $.external_code_names)),
+      optional(choice(
+        $.vector_offset, $.square_vector_offset, $.external_code_names,
+        $.curly_external_code_names
+      )),
       optional($.formal_params)
     ),
 
@@ -334,6 +347,14 @@ module.exports = grammar({
     // an externally-compiled procedure, e.g. `PROCEDURE Foo* ["_Foo"](...)`.
     external_code_names: $ => seq(
       '[', $.string, repeat(seq(',', $.string)), ']'
+    ),
+
+    // curly_external_code_names = "{" string {"," string} "}"
+    // AmigaOberon dialect extension (not in normative EBNF, confirmed via corpus): curly-brace
+    // sibling of external_code_names, e.g. `PROCEDURE Foo*{"Foo.Bar"}(...)`. Distinguishable
+    // from vector_offset (also "{"-led) by its first token being a string, not an ident.
+    curly_external_code_names: $ => seq(
+      '{', $.string, repeat(seq(',', $.string)), '}'
     ),
 
     // receiver = "(" ["VAR"] ident ":" ident ")"
@@ -426,6 +447,7 @@ module.exports = grammar({
       $.kTrue,
       $.kFalse,
       $.set,
+      $.typed_set,
       seq($.designator, optional($.actual_params)),
       seq('(', $.expression, ')'),
       seq('~', $.factor),
@@ -454,6 +476,12 @@ module.exports = grammar({
       )),
       '}'
     ),
+
+    // typed_set = qualident set
+    // AmigaOberon dialect extension (not in normative EBNF, confirmed via corpus): a
+    // type-qualified set constructor for the dialect's fixed-width SET types, e.g.
+    // LONGSET{1, 2..4} / SHORTSET{}.
+    typed_set: $ => seq($.qualident, $.set),
 
     // element = expression [".." expression]
     element: $ => seq(
@@ -619,9 +647,14 @@ module.exports = grammar({
     number: $ => choice($.integer, token(real)),
 
     // integer = digit {digit} | digit {hex_digit} "H"
+    // AmigaOberon dialect extension (not in normative EBNF, confirmed via corpus): a "U"
+    // suffix as a sibling of "H", denoting an unsigned hex literal (e.g. 016C0U) — used
+    // throughout for raw machine-code words passed to SYSTEM.INLINE and hex bit-mask
+    // constants.
     integer: $ => choice(
       token(seq(digit, repeat(digit))),
-      token(seq(digit, repeat(hex_digit), 'H'))
+      token(seq(digit, repeat(hex_digit), 'H')),
+      token(seq(digit, repeat(hex_digit), 'U'))
     ),
     
     // mathematical operators
@@ -660,6 +693,7 @@ module.exports = grammar({
 
     kArray: $ => 'ARRAY',
     kBegin: $ => 'BEGIN',
+    kClose: $ => 'CLOSE',
     kConst: $ => 'CONST',
     kFalse: $ => 'FALSE',
     kUntil: $ => 'UNTIL',

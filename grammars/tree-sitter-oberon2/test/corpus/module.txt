@@ -6,10 +6,10 @@ MODULE Hello;
 END Hello.
 ---
 
-(module 
+(module
   (module_header
     (kModule)
-    (ident)) 
+    (ident))
   (module_footer
     (kEnd)
     (ident)))
@@ -23,10 +23,10 @@ MODULE Hello;
 END Hello.
 ---
 
-(module 
+(module
   (module_header
     (kModule)
-    (ident)) 
+    (ident))
   (import_list
     (kImport)
     (import
@@ -44,10 +44,10 @@ MODULE Hello;
 END Hello.
 ---
 
-(module 
+(module
   (module_header
     (kModule)
-    (ident)) 
+    (ident))
   (import_list
     (kImport)
     (import
@@ -56,6 +56,7 @@ END Hello.
   (module_footer
     (kEnd)
     (ident)))
+
 =====================================
 module import with re-export marker
 =====================================
@@ -65,10 +66,10 @@ MODULE Hello;
 END Hello.
 ---
 
-(module 
+(module
   (module_header
     (kModule)
-    (ident)) 
+    (ident))
   (import_list
     (kImport)
     (import
@@ -114,6 +115,62 @@ END Hello.
     (sysflag
       (integer))
     (ident))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====================
+module begin close end
+====================
+
+MODULE Hello;
+VAR x: INTEGER;
+BEGIN
+  x := 1
+CLOSE
+  x := 0
+END Hello.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (variable_decls
+    (kVar)
+    (variable_decl
+      (ident_list
+        (ident_def
+          (ident)))
+      (type
+        (qualident
+          (ident)))))
+  (kBegin)
+  (statement_seq
+    (statement
+      (assignment
+        (designator
+          (qualident
+            (ident)))
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (number
+                  (integer)))))))))
+  (kClose)
+  (statement_seq
+    (statement
+      (assignment
+        (designator
+          (qualident
+            (ident)))
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (number
+                  (integer)))))))))
   (module_footer
     (kEnd)
     (ident)))

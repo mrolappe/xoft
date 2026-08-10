@@ -870,3 +870,141 @@ END M.
   (module_footer
     (kEnd)
     (ident)))
+
+============================
+AmigaOberon typed set constructor
+============================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    x := LONGSET{1, 2..4};
+    y := SHORTSET{}
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (assignment
+              (designator
+                (qualident
+                  (ident)))
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (typed_set
+                        (qualident
+                          (ident))
+                        (set
+                          (element
+                            (expression
+                              (simple_expression
+                                (term
+                                  (factor
+                                    (number
+                                      (integer)))))))
+                          (element
+                            (expression
+                              (simple_expression
+                                (term
+                                  (factor
+                                    (number
+                                      (integer))))))
+                            (expression
+                              (simple_expression
+                                (term
+                                  (factor
+                                    (number
+                                      (integer)))))))))))))))
+          (statement
+            (assignment
+              (designator
+                (qualident
+                  (ident)))
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (typed_set
+                        (qualident
+                          (ident))
+                        (set)))))))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+============================
+AmigaOberon unsigned hex literal
+============================
+
+MODULE M;
+  IMPORT S := SYSTEM;
+  PROCEDURE P;
+  BEGIN
+    S.INLINE(016C0U,04E75U)
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (import_list
+    (kImport)
+    (import
+      (ident)
+      (ident)))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (procedure_call
+              (designator
+                (qualident
+                  (ident))
+                (selector
+                  (ident)))
+              (actual_params
+                (expression_list
+                  (expression
+                    (simple_expression
+                      (term
+                        (factor
+                          (number
+                            (integer))))))
+                  (expression
+                    (simple_expression
+                      (term
+                        (factor
+                          (number
+                            (integer)))))))))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))

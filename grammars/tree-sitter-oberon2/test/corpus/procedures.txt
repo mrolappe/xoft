@@ -379,3 +379,85 @@ END Bullet.
   (module_footer
     (kEnd)
     (ident)))
+
+=========================
+Procedure With Curly External Code Name
+=========================
+
+MODULE M;
+  PROCEDURE Alert * {"Alerts.AlertDummy"} (s: ARRAY OF CHAR): BOOLEAN;
+  BEGIN
+  END Alert;
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (curly_external_code_names
+          (string))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (kArray)
+              (kOf)
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With Param Offset Varargs Marker
+=========================
+
+MODULE M;
+  PROCEDURE Alert(data{9}..: SYSTEM.ADDRESS): BOOLEAN;
+  BEGIN
+  END Alert;
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident))
+        (formal_params
+          (fp_section
+            (ident)
+            (param_offset
+              (integer))
+            (formal_type
+              (qualident
+                qualifier: (ident)
+                property: (ident))))
+          (qualident
+            (ident))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
