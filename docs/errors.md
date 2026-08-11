@@ -187,3 +187,41 @@ corpus-wide `grep -r`/`grep -rl` command against these roots specifically, defau
 `-a` every time rather than adding it reactively after a suspiciously-low count; treat "surprise
 zero or near-zero hit count for something known to be common" as itself a signal to re-check
 the command against the known Latin-1 pitfall before trusting the number.
+
+### Round 22: `tree-sitter generate`'s conflict resolution was declared against the wrong symbol pair
+
+Adding STJ's `PROCEDURE-` trap-bound heading (a `kMinus` mark in `procedure_heading`) collided
+with voc's pre-existing `external_proc_decl` rule, which spells the same leading `-` as an
+inline anonymous literal rather than the named `kMinus` token. `tree-sitter generate` reported
+an unresolved conflict and suggested (as resolution #4) "add a conflict for these rules:
+`external_proc_decl`, `kMinus`." The first attempt instead declared `[$.external_proc_decl,
+$.procedure_heading]` — the two *containing* rules whose expansions diverge, which looked like
+the more meaningful pairing — and `tree-sitter generate` produced the exact same unresolved
+error, byte-for-byte, on the next run. Only pairing the literal symbols the generator itself
+named (`external_proc_decl`, `kMinus`) resolved it.
+
+**Mitigation:** when `tree-sitter generate` names a specific symbol pair in its conflict
+resolution suggestion, declare the conflict on exactly those symbols first — not a
+higher-level rule that seems to capture the same idea — and only widen from there if that
+doesn't resolve it. A conflict lives at the parse-table symbols that actually collide, which
+isn't always the outermost rule a person would think to name.
+
+### Round 22: a hand-written test source for a nested-procedure construct was accidentally ambiguous with an unrelated bodiless-heading rule
+
+The first hand-written test for STJ's `PROCEDURE~` nested-procedure mark (`PROCEDURE Outer;
+PROCEDURE~ Inner(...); BEGIN...END Inner; BEGIN...END Outer.`) passed `tree-sitter test
+--update` with 0 errors, but the generated expected tree showed `Outer` had been parsed as a
+*bodiless* heading (reusing round 20's AmigaOberon `definition_proc_decl`-at-module-level
+precedent) with `Inner` promoted to an independent second module-level procedure — not nested
+inside `Outer` at all, defeating the point of the test. The source's single trailing `END
+Outer.` (no distinct `END Outer;` before a further module body) left the file genuinely
+ambiguous: GLR found a fully valid alternate parse that didn't exercise nesting, and "0 errors"
+gave no signal that anything was wrong.
+
+**Mitigation:** after `--update` reports success on a *hand-written* (not corpus-derived) test
+source, read the generated tree before trusting it, especially for any construct that shares a
+grammar position with an existing bodiless/optional-body alternative — success only means *a*
+valid parse was found, not the intended one. Prefer copying the real corpus file's structural
+shape (receiver, enclosing `END name;` before further content) over a minimal invented
+skeleton, since the corpus shape is unambiguous by construction and a minimal invented one may
+not be.

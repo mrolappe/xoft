@@ -388,6 +388,74 @@ END M.
     (ident)))
 
 ===================
+STJ-Oberon Return Caret
+===================
+
+MODULE M;
+  PROCEDURE P (): INTEGER;
+  BEGIN
+    IF x = 1 THEN
+      RETURN^ 1
+    END;
+    RETURN^
+  END P;
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident))
+        (formal_params
+          (qualident
+            (ident))))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (if_statement
+              (kIf)
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (designator
+                        (qualident
+                          (ident))))))
+                (relation)
+                (simple_expression
+                  (term
+                    (factor
+                      (number
+                        (integer))))))
+              (kThen)
+              (statement_seq
+                (statement
+                  (return_statement
+                    (kReturn)
+                    (expression
+                      (simple_expression
+                        (term
+                          (factor
+                            (number
+                              (integer)))))))))
+              (kEnd)))
+          (statement
+            (return_statement
+              (kReturn))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===================
 If Elsif
 ===================
 
@@ -625,9 +693,21 @@ END M.
                 (case_label_list
                   (label_range
                     (label
-                      (integer))
+                      (const_expression
+                        (expression
+                          (simple_expression
+                            (term
+                              (factor
+                                (number
+                                  (integer))))))))
                     (label
-                      (integer))))
+                      (const_expression
+                        (expression
+                          (simple_expression
+                            (term
+                              (factor
+                                (number
+                                  (integer))))))))))
                 (statement_seq
                   (statement
                     (assignment
@@ -644,7 +724,13 @@ END M.
                 (case_label_list
                   (label_range
                     (label
-                      (integer))))
+                      (const_expression
+                        (expression
+                          (simple_expression
+                            (term
+                              (factor
+                                (number
+                                  (integer))))))))))
                 (statement_seq
                   (statement
                     (assignment
@@ -709,7 +795,13 @@ END M.
                 (case_label_list
                   (label_range
                     (label
-                      (integer))))
+                      (const_expression
+                        (expression
+                          (simple_expression
+                            (term
+                              (factor
+                                (number
+                                  (integer))))))))))
                 (statement_seq
                   (statement
                     (assignment
@@ -726,7 +818,13 @@ END M.
                 (case_label_list
                   (label_range
                     (label
-                      (integer))))
+                      (const_expression
+                        (expression
+                          (simple_expression
+                            (term
+                              (factor
+                                (number
+                                  (integer))))))))))
                 (statement_seq
                   (statement
                     (assignment
@@ -1003,6 +1101,215 @@ END M.
                           (factor
                             (number
                               (integer))))))))))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===================
+STJ-Oberon Arithmetic Case Label
+===================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    CASE x OF
+      -Neg: y := 1
+    | Base-1, Base+1..Top: y := 2
+    END
+  END P;
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (case_statement
+              (kCase)
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (designator
+                        (qualident
+                          (ident)))))))
+              (kOf)
+              (case_clause
+                (case_label_list
+                  (label_range
+                    (label
+                      (const_expression
+                        (expression
+                          (simple_expression
+                            (kMinus)
+                            (term
+                              (factor
+                                (designator
+                                  (qualident
+                                    (ident)))))))))))
+                (statement_seq
+                  (statement
+                    (assignment
+                      (designator
+                        (qualident
+                          (ident)))
+                      (expression
+                        (simple_expression
+                          (term
+                            (factor
+                              (number
+                                (integer))))))))))
+              (case_clause
+                (case_label_list
+                  (label_range
+                    (label
+                      (const_expression
+                        (expression
+                          (simple_expression
+                            (term
+                              (factor
+                                (designator
+                                  (qualident
+                                    (ident)))))
+                            (add_operator
+                              (kMinus))
+                            (term
+                              (factor
+                                (number
+                                  (integer)))))))))
+                  (label_range
+                    (label
+                      (const_expression
+                        (expression
+                          (simple_expression
+                            (term
+                              (factor
+                                (designator
+                                  (qualident
+                                    (ident)))))
+                            (add_operator
+                              (kPlus))
+                            (term
+                              (factor
+                                (number
+                                  (integer))))))))
+                    (label
+                      (const_expression
+                        (expression
+                          (simple_expression
+                            (term
+                              (factor
+                                (designator
+                                  (qualident
+                                    (ident)))))))))))
+                (statement_seq
+                  (statement
+                    (assignment
+                      (designator
+                        (qualident
+                          (ident)))
+                      (expression
+                        (simple_expression
+                          (term
+                            (factor
+                              (number
+                                (integer))))))))))
+              (kEnd))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===================
+STJ-Oberon Assignment Expression
+===================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    IF (answer := self.First()) = NIL THEN
+      RETURN
+    END;
+    a := b := proc()
+  END P;
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (if_statement
+              (kIf)
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (assignment
+                        (designator
+                          (qualident
+                            (ident)))
+                        (expression
+                          (simple_expression
+                            (term
+                              (factor
+                                (designator
+                                  (qualident
+                                    (ident))
+                                  (selector
+                                    (ident))
+                                  (actual_params))))))))))
+                (relation)
+                (simple_expression
+                  (term
+                    (factor
+                      (kNil)))))
+              (kThen)
+              (statement_seq
+                (statement
+                  (return_statement
+                    (kReturn))))
+              (kEnd)))
+          (statement
+            (assignment
+              (designator
+                (qualident
+                  (ident)))
+              (assignment
+                (designator
+                  (qualident
+                    (ident)))
+                (expression
+                  (simple_expression
+                    (term
+                      (factor
+                        (designator
+                          (qualident
+                            (ident))
+                          (actual_params))))))))))
         (kEnd))
       (ident)))
   (module_footer

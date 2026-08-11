@@ -153,3 +153,59 @@ END RecordType.
   (module_footer
     (kEnd)
     (ident)))
+
+=====================================
+Record With Type-Bound Procedure Field
+=====================================
+
+DEFINITION Stack;
+  TYPE
+    ElemDesc* = RECORD
+                  PROCEDURE (VAR s: Stack) Push*(e: Elem);
+                  count : INTEGER;
+                END;
+END Stack.
+---
+
+(module
+  (definition_header
+    (kDefinition)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident)
+        (kStar))
+      (type
+        (struct_type
+          (record_type
+            (kRecord)
+            (field_list_seq
+              (field_list
+                (procedure_heading
+                  (kProcedure)
+                  (receiver
+                    (kVar)
+                    (ident)
+                    (ident))
+                  (ident_def
+                    (ident)
+                    (kStar))
+                  (formal_params
+                    (fp_section
+                      (ident)
+                      (formal_type
+                        (qualident
+                          (ident)))))))
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident)))
+                (type
+                  (qualident
+                    (ident)))))
+            (kEnd))))))
+  (module_footer
+    (kEnd)
+    (ident)))

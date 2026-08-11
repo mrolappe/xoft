@@ -61,7 +61,11 @@ module.exports = grammar({
   // GLR resolves which one matched by whether a procedure_body actually follows.
   conflicts: $ => [
     [$.procedure_decl, $.definition_proc_decl],
-    [$.selector, $.actual_params]
+    [$.selector, $.actual_params],
+    // "PROCEDURE -ident" is ambiguous between voc's external_proc_decl (round 20) and
+    // STJ-Oberon's trap-bound procedure_heading (round 22) until the tokens after the
+    // heading (a trailing string vs. ";"/trap_offset) disambiguate which dialect it is.
+    [$.external_proc_decl, $.kMinus]
   ],
 
   rules: {
@@ -259,8 +263,16 @@ module.exports = grammar({
     ),
 
     // field_list = [ident_list ":" type]
-    field_list: $ => seq(
-      $.ident_list, ':', $.type
+    // STJ-Oberon dialect extension (confirmed via corpus, e.g. DEF/BINTREE.DEF,
+    // DEF/CDCL.DEF, DEF/STACK.DEF): a DEFINITION module's RECORD body may list its
+    // type-bound procedure headings directly as field_list items, interleaved with
+    // ordinary fields, instead of declaring them separately at module level (the
+    // module-level `definition_proc_decl` shape). Reuses `procedure_heading` bare
+    // (not `definition_proc_decl`) since `field_list_seq` already supplies the ";"
+    // separator between items.
+    field_list: $ => choice(
+      seq($.ident_list, ':', $.type),
+      $.procedure_heading
     ),
 
     // ident_list = ident_def {"," ident_def}
@@ -361,20 +373,36 @@ module.exports = grammar({
       $.procedure_heading, ';', $.procedure_body, $.ident
     ),
 
-    // procedure_heading = "PROCEDURE" ["*"] [sysflag] [receiver] ident_def
+    // procedure_heading = "PROCEDURE" ["*" | "-" | "~"] [sysflag] [receiver] ident_def
     //                     [vector_offset | square_vector_offset | external_code_names]
-    //                     [formal_params]
+    //                     [formal_params] [trap_offset]
     // The "*" right after PROCEDURE (before sysflag/receiver/ident) is Oberon-A's
     // "assignable procedure" mark (docs/OC.doc "AssignableProcs"): it allows a procedure to
     // be assigned to a procedure variable without being exported, e.g. `PROCEDURE* [0] Foo`.
+    // The "-" in the same slot is STJ-Oberon's (confirmed via corpus, e.g. LIBRARY.PRJ/
+    // BIOS.MOD, GEMDOS.MOD, XBIOS.MOD) marker for a procedure bound directly to a GEMDOS/
+    // BIOS/XBIOS trap, always paired with a trailing `trap_offset`. The "~" is STJ-Oberon's
+    // sibling mark on a *nested* (locally-declared, inside another procedure's body)
+    // procedure (confirmed via corpus, e.g. LIBRARY.PRJ/TASK.MOD, PROCLIST.MOD): every
+    // corpus occurrence assigns the nested procedure's ident to a procedure variable, so
+    // it plays the same "assignable" role "*" plays at module level, just spelled
+    // differently since nested procedures can't carry an export mark.
     procedure_heading: $ => seq(
-      $.kProcedure, optional($.kStar), optional($.sysflag), optional($.receiver), $.ident_def,
+      $.kProcedure, optional(choice($.kStar, $.kMinus, '~')), optional($.sysflag),
+      optional($.receiver), $.ident_def,
       optional(choice(
         $.vector_offset, $.square_vector_offset, $.external_code_names,
         $.curly_external_code_names
       )),
-      optional($.formal_params)
+      optional($.formal_params),
+      optional($.trap_offset)
     ),
+
+    // trap_offset = integer "," integer
+    // STJ-Oberon dialect extension (not in normative EBNF, confirmed via corpus): the
+    // GEMDOS/BIOS/XBIOS trap number and function number of a "PROCEDURE-"-marked system-call
+    // binding, e.g. `PROCEDURE- Bconout*(Char,Device : INTEGER) 3,13;`.
+    trap_offset: $ => seq($.integer, ',', $.integer),
 
     // vector_offset = "{" ident "," "-" integer "}"
     // AmigaOberon dialect extension (not in normative EBNF, confirmed via corpus): a
@@ -523,6 +551,7 @@ module.exports = grammar({
       $.typed_set,
       $.designator,
       seq('(', $.expression, ')'),
+      seq('(', $.assignment, ')'),
       seq('~', $.factor),
       seq($.kNot, $.factor)
     ),
@@ -605,9 +634,15 @@ module.exports = grammar({
       $.assembler_statement
     ),
 
-    // assignment = designator ":=" expression
+    // assignment = designator ":=" (expression | assignment)
+    // STJ-Oberon dialect extension (docs/STJ-OBN.TXT "Assigment expressions", "extended
+    // mode"): the RHS may itself be another assignment, chaining without parens (e.g.
+    // `a := b := proc();`, confirmed straight from the compiler manual). Parenthesized, an
+    // assignment can also appear nested inside a larger expression (factor's "(" assignment
+    // ")" alternative below) — confirmed via corpus, e.g. LIBRARY.PRJ/MODELLIS.MOD's
+    // `IF (answer := self.First()) = NIL THEN`.
     assignment: $ => seq(
-      $.designator, ':=', $.expression
+      $.designator, ':=', choice($.assignment, $.expression)
     ),
 
     // procedure_call = designator [actual_params]
@@ -658,12 +693,14 @@ module.exports = grammar({
       $.label, optional(seq('..', $.label))
     ),
 
-    // label = integer | string | qualident
-    label: $ => choice(
-      $.integer,
-      $.string,
-      $.qualident
-    ),
+    // label = ConstExpr, per the normative baseline (this grammar had narrowed it to just
+    // integer/string/qualident, missing arithmetic on named constants). Confirmed corpus
+    // need, not a dialect extension: SYSTEM.PRJ/OCASSEMB.MOD's negated condition-code
+    // constants (`-FNE: RETURN FEQ;`) and SYSTEM.PRJ/OCASSOPT.MOD's offset labels
+    // (`Expr.Set-1, Expr.Set+1..Expr.DynArr:`) both need more than a bare qualident.
+    // const_expression already covers integer/string/qualident too, so this replaces
+    // rather than extends the old choice.
+    label: $ => $.const_expression,
 
     // while_statement = "WHILE" expression "DO" statement_sequence
     //                   {"ELSIF" expression "DO" statement_sequence} "END"
@@ -694,9 +731,12 @@ module.exports = grammar({
     // exit_statement = "EXIT"
     exit_statement: $ => $.kExit,
 
-    // return_statement = "RETURN" [expression]
+    // return_statement = "RETURN" ["^"] [expression]
+    // The "^" is an STJ-Oberon dialect extension (not in normative EBNF, confirmed via
+    // corpus, e.g. LIBRARY.PRJ/TASK.MOD, OBJFILE.MOD, LISTVIEW.MOD): always immediately
+    // after "RETURN", before the optional expression.
     return_statement: $ => seq(
-      $.kReturn, optional($.expression)
+      $.kReturn, optional('^'), optional($.expression)
     ),
 
     // with_statement = "WITH" guard "DO" statement_seq

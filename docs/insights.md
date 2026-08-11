@@ -756,3 +756,56 @@ about the dialect's actual rules, and no amount of additional sampling resolves 
 human call. Recognizing the shape early (two *already-confirmed*, *opposite* readings of the
 same syntax) is faster than what round 20 needed to reach the same kind of stop, since it didn't
 require a scoping conversation to notice — just grepping both directions before coding.
+
+### A dialect's own compiler manual, when the corpus root has one, is a primary source worth checking before inferring semantics from usage alone
+
+Round 22 found `stj`'s `PROCEDURE~` (assignable nested procedure) and `RETURN^` (non-local
+return) constructs from corpus grep alone first, and had already correctly guessed their rough
+shape and even their approximate semantics from context (both patterns only ever wrap a nested
+procedure assigned to a callback variable). But `OBERON_I/DOC/STJ-OBN.TXT` — the compiler's own
+manual, sitting right in the corpus root next to the source — spelled out both features exactly,
+by name, with the author's own worked examples ("Assignment procedures", "Extended return from
+procedures"), removing all doubt and confirming the guess was right before writing a line of
+grammar. `NEXT.md`'s existing guidance ("check for a `*.doc`/`*.txt` compiler manual before
+inferring a dialect construct's shape purely from usage") already said to do this — this round
+is the first time it actually paid off with a hit, converting what would otherwise have been
+"grammar addition based on corpus inference" into "grammar addition confirmed against a primary
+source." Lesson: when a root's manual exists, read the relevant section *before* finalizing a
+fix based on corpus-only inference, not just as a courtesy check afterward — it can also reveal
+a *documented but not-yet-corpus-confirmed* companion feature (the manual's `a := b := proc()`
+chained-assignment example, supported in the same fix even though the sampled corpus only
+exercised the parenthesized-nested form).
+
+### `tree-sitter generate`'s conflict-resolution suggestions name the exact colliding symbols — pair those, not their containing rules
+
+Adding STJ's `PROCEDURE-` trap-bound heading (a bare `kMinus` token in `procedure_heading`'s
+mark slot) collided with voc's pre-existing `external_proc_decl`, which spells its own leading
+mark as an inline `'-'` literal rather than the named `$.kMinus` rule — same text, two different
+grammar symbols, unresolvable by the parser without a `conflicts` entry. The first attempt
+declared `[$.external_proc_decl, $.procedure_heading]` (the two *rules* whose expansions
+actually diverge) and `tree-sitter generate` still reported the identical unresolved-conflict
+error, unchanged. The generator's own error message had already named the precise pair —
+`external_proc_decl`, `kMinus` — as its suggested resolution #4; using that literal pairing
+instead of the higher-level rules resolved it immediately. Lesson: when `tree-sitter generate`
+suggests "add a conflict for these rules: `X`, `Y`," pair exactly `X` and `Y`, not whatever
+higher-level rule happens to contain them — the conflict lives at the specific symbols colliding
+in the parse table, and a plausible-looking substitute one level up doesn't fix it even when it
+sounds like the same idea.
+
+### A synthetic hand-written test source can accidentally be grammar-ambiguous in a way the real corpus source never is — check the generated tree, not just "0 failures"
+
+Testing the new `PROCEDURE~` nested-procedure mark, a first hand-written test source
+(`PROCEDURE Outer; PROCEDURE~ Inner(...); BEGIN ... END Inner; BEGIN ... END Outer.`) parsed
+successfully via `tree-sitter test --update` — but the generated tree showed `Outer` had been
+parsed as a *bodiless* `definition_proc_decl` (reusing round 20's AmigaOberon precedent) with
+`Inner` promoted to a *second, independent* module-level procedure, not nested inside `Outer` at
+all. The source was genuinely ambiguous as written: ending the file with `END Outer.` (a single
+`END` before the closing period) let GLR find an entirely different but still fully valid parse
+of the same bytes, one that happened to not exercise nesting at all. The real corpus source
+(`LIBRARY.PRJ/LINKEDLI.MOD`) never has this shape because it always has a receiver and a
+distinct enclosing procedure `END name;` followed by further module content — accidentally
+unambiguous by construction, not by any grammar guarantee. Lesson: after `tree-sitter test
+--update` reports success on a hand-written (not corpus-copied) source, read the generated tree
+before trusting it — "parses with 0 errors" is not the same as "parses the way I intended,"
+especially for any construct that reuses an existing bodiless-heading alternative elsewhere in
+the same rule.

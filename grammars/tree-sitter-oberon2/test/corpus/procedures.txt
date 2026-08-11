@@ -684,3 +684,116 @@ END M.
   (module_footer
     (kEnd)
     (ident)))
+
+====
+STJ-Oberon trap-bound procedure
+====
+
+MODULE M;
+
+PROCEDURE- Bconout*(Char, Device: INTEGER) 3,13;
+
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (kMinus)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (ident)
+            (formal_type
+              (qualident
+                (ident)))))
+        (trap_offset
+          (integer)
+          (integer)))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====
+STJ-Oberon assignable nested procedure
+====
+
+MODULE M;
+
+PROCEDURE Outer;
+  PROCEDURE~ Inner(e: Element);
+  BEGIN
+    e.proc
+  END Inner;
+BEGIN
+  list.Do(Inner)
+END Outer;
+
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (procedure_decl
+          (procedure_heading
+            (kProcedure)
+            (ident_def
+              (ident))
+            (formal_params
+              (fp_section
+                (ident)
+                (formal_type
+                  (qualident
+                    (ident))))))
+          (procedure_body
+            (kBegin)
+            (statement_seq
+              (statement
+                (procedure_call
+                  (designator
+                    (qualident
+                      (ident))
+                    (selector
+                      (ident))))))
+            (kEnd))
+          (ident))
+        (kBegin)
+        (statement_seq
+          (statement
+            (procedure_call
+              (designator
+                (qualident
+                  (ident))
+                (selector
+                  (ident))
+                (actual_params
+                  (expression_list
+                    (expression
+                      (simple_expression
+                        (term
+                          (factor
+                            (designator
+                              (qualident
+                                (ident)))))))))))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))

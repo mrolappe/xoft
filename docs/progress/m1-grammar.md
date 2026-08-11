@@ -1167,3 +1167,138 @@ round 17), `voc` 4 (unchanged, all deferred per round 20). `oberon-a`'s remainin
 mostly one-offs now rather than a cluster — round 22 should pick `stj` (40, oldest untouched
 cluster) or `amiga-oberon-31` (61, biggest remaining root, never explained why today's fixes
 didn't reach it) over squeezing `oberon-a`'s last ~10 files further.
+
+## M1.4 continued — `stj`'s first full sampling pass since round 17: 6 fixes, +40 files, `stj` cluster now 0 (round 22, 2026-08-11)
+
+`stj` (STJ-Oberon, Atari ST) hadn't had a dedicated pass since round 17 (`AND`/`NOT` keyword
+operators only). Starting count: 40/792 failures in this root. All six fixes below cleared it
+completely — `stj` went from 40 failures to 0, the first root to reach 100%.
+
+1. **DEFINITION module `RECORD` bodies may list type-bound procedure headings directly as
+   field-list items**, interleaved with ordinary fields, instead of declaring them separately
+   at module level (`docs/language-baseline.md`'s `FieldList = [IdentList ":" Type]` has no
+   such form — genuine STJ dialect extension). `field_list` gained a `$.procedure_heading`
+   choice arm alongside the existing `ident_list ':' type` shape; `field_list_seq` already
+   supplies the `;` separators, so `procedure_heading` is reused bare (not
+   `definition_proc_decl`, which owns its own trailing `;`). No new conflicts. New test in
+   `records.txt` (`"Record With Type-Bound Procedure Field"`).
+   **Impact:** 84.09% → 85.48% (666 → 677), **+11 files**, all `stj`'s `DEF/*.DEF` files
+   (`BINTREE.DEF`, `CDCL.DEF`, `DCL.DEF`, `FIFO.DEF`, `LRU.DEF`, `STACK.DEF`, and others).
+
+2. **`PROCEDURE-` trap-bound procedure heading**: a `"-"` mark right after `PROCEDURE`
+   (STJ's GEMDOS/BIOS/XBIOS system-call binding, confirmed via corpus: `LIBRARY.PRJ/BIOS.MOD`,
+   `GEMDOS.MOD`, `XBIOS.MOD`, `SYS.MOD`, `FILE.MOD`, `MINT.MOD`, `LOADER.PRJ/O2LS.MOD`,
+   `DEF/FILE.DEF` — 8 files, all with this shape), always paired with a trailing `trap,
+   function` integer pair before the `;` (e.g. `PROCEDURE- Bconout*(Char,Device:INTEGER)
+   3,13;`). `procedure_heading`'s mark slot widened from `optional($.kStar)` to
+   `optional(choice($.kStar, $.kMinus))`, and a new `trap_offset = integer "," integer` rule
+   added after `formal_params`. This collided with voc's existing `external_proc_decl`
+   (`PROCEDURE -ident(...) "C code";`, round 20) — both start `PROCEDURE '-' ident_def`, only
+   diverging at what follows (a trailing string vs. `;`/`trap_offset`). `tree-sitter generate`
+   caught it immediately as an unresolved conflict between `external_proc_decl` and the bare
+   `kMinus` token; resolved with a `conflicts` entry pairing those two exact symbols (its own
+   suggested resolution #4), not the higher-level rules — pairing `[external_proc_decl,
+   procedure_heading]` instead did *not* resolve it, confirming the conflict must name the
+   symbols actually colliding in the parse table, not their containing rules. New test in
+   `procedures.txt` (`"STJ-Oberon trap-bound procedure"`), confirmed via the generated tree
+   that GLR correctly resolves to `procedure_heading`/`trap_offset`, not `external_proc_decl`.
+   **Impact:** 85.48% → 86.62% (677 → 686), **+9 files**, all `stj`'s remaining trap-bound
+   files, including the last `DEF/FILE.DEF`.
+
+3. **`PROCEDURE~` assignable nested-procedure mark and `RETURN^` non-local return**, both
+   confirmed against `stj`'s own compiler manual (`DOC/STJ-OBN.TXT`, "Assignment procedures"
+   and "Extended return from procedures" sections — a primary source, not corpus inference).
+   `~` right after `PROCEDURE` marks a procedure *nested inside another procedure's body* as
+   assignable to a procedure variable without needing an export mark (nested procedures can't
+   carry `*`); every corpus occurrence is in fact assigned to a procedure variable or passed as
+   a callback, matching the doc exactly. Added as a third choice in the same mark slot as `*`/
+   `-`: `optional(choice($.kStar, $.kMinus, '~'))`. `RETURN^` sets "the return level one step
+   higher" per the manual (terminates the calling procedure too, not just the nested one) —
+   syntactically just `return_statement`'s existing `optional($.expression)` gaining a leading
+   `optional('^')`, unambiguous since `^` can't start an expression (it's selector-only,
+   postfix). New tests: `procedures.txt` (`"STJ-Oberon assignable nested procedure"` — first
+   hand-written attempt was accidentally ambiguous, see round 22 in `docs/errors.md`) and
+   `statements.txt` (`"STJ-Oberon Return Caret"`).
+   **Impact:** 86.62% → 88.51% (686 → 701), **+15 files**, all `stj` — the single biggest fix
+   of this round.
+
+4. **`ASSEMBLER` block scanner didn't skip `;`-style Motorola line comments**, so `; END` or
+   any other prose containing the standalone word "END" inside an assembler comment (e.g.
+   `NEG.W D1 ; END` — a comment describing the *source* Oberon construct being hand-compiled,
+   not the block's own terminator) falsely closed the block early. Root-caused to round 10's
+   external-scanner word-boundary raw scan, which had no concept of assembler comments at all.
+   Fixed in `src/scanner.c`'s `ASSEMBLER_BODY` loop: on `;`, skip to the next `\n` without
+   scanning that span for the closing "END" word, then resume the outer scan with
+   `prev_is_ident = false`. Confirmed corpus-wide via `grep -rlaE ";.*\bEND\b"` before fixing
+   (114 hits across all four roots — comment-prose "END" mid-assembler-block is common, not a
+   one-off). No test-corpus case added (this is scanner behavior on multi-line raw text with
+   an embedded semicolon-comment; the existing `"Assembler Statement"` test doesn't need
+   updating and hand-writing a new minimal repro adds little beyond what the corpus sweep
+   already verifies — the fix is exercised end-to-end by the `LIBRARY.PRJ/MATHCOM.MOD`
+   corpus file itself).
+   **Impact:** landed together with fixes 5 and 6 below before the next re-sweep; combined
+   impact recorded under fix 6.
+
+5. **CASE label widened from `integer | string | qualident` to the baseline's actual
+   `ConstExpr`** (`label: $ => $.const_expression`, replacing the narrower `choice`). Two
+   corpus constructs needed this: `SYSTEM.PRJ/OCASSEMB.MOD`'s negated condition-code constants
+   (`-FNE: RETURN FEQ;`) and `SYSTEM.PRJ/OCASSOPT.MOD`'s arithmetic offset labels
+   (`Expr.Set-1, Expr.Set+1..Expr.DynArr:`). Not a dialect extension — `docs/language-
+   baseline.md` line 105 already specifies `CaseLabels = ConstExpr [".." ConstExpr]`; the
+   grammar had simply narrowed it below spec. First attempt added only `seq('-', $.qualident)`
+   to cover the first file; hitting the second file's `+1`/`-1` arithmetic on the *next* sample
+   made clear the narrow patch was chasing individual shapes instead of matching the spec, so
+   replaced it outright with `const_expression` (`= expression`, already includes leading-sign
+   `simple_expression` and integer/string/qualident `factor`s) rather than layering a third
+   special case. No new conflicts — `..` isn't part of `expression`'s own grammar, so
+   `label_range`'s `[".." label]` still terminates the first label's parse at the right point.
+   Existing tests `"Case Label Range"` and `"Case Statement With Else"` needed `tree-sitter
+   test --update` (their expected trees now wrap each label in `const_expression`/`expression`
+   /.../`integer`, not a bare `integer` child). New test in `statements.txt` (`"STJ-Oberon
+   Arithmetic Case Label"`).
+   **Impact:** landed together with fixes 4 and 6; combined impact recorded under fix 6.
+
+6. **Assignment expressions**, confirmed against `DOC/STJ-OBN.TXT`'s "Assigment expressions"
+   section (primary source): `docs/language-baseline.md`-normative Oberon-2 only allows `:=`
+   as a statement, but STJ's "extended mode" also accepts it as an expression, always
+   parenthesized when nested inside a larger expression (`IF (answer := self.First()) = NIL
+   THEN`, confirmed in `LIBRARY.PRJ/MODELLIS.MOD` and `TUTORIAL.PRJ/LISTDEMO.MOD`) and
+   unparenthesized when chained as a whole statement's RHS (`a := b := proc();`, from the
+   manual's own example, not yet found bare in the sampled corpus but supported for
+   consistency with the documented grammar). Implemented by making `assignment`'s RHS
+   right-recursive (`choice($.assignment, $.expression)` instead of just `$.expression`) and
+   adding `seq('(', $.assignment, ')')` as a new `factor` alternative — both reuse the single
+   `assignment` node rather than introducing a separate `assignment_expression` rule, so
+   existing statement-level assignment handling is unaffected. New test in `statements.txt`
+   (`"STJ-Oberon Assignment Expression"`), exercising both the parenthesized-nested and
+   chained-unparenthesized forms in one file.
+   **Impact:** 88.51% → 89.27% (701 → 707), **+6 files**, combined across fixes 4, 5, and 6
+   (implemented and swept together, not re-split — the assembler-comment fix cleared
+   `MATHCOM.MOD` and part of `OCASSEMB.MOD`, the `label` widening cleared the rest of
+   `OCASSEMB.MOD` and all of `OCASSOPT.MOD`, and the assignment-expression fix cleared
+   `MODELLIS.MOD` and `LISTDEMO.MOD`). `stj` reached **0 failures** — full corpus pass for
+   this root, the first to get there.
+
+**Cross-dialect bonus, caught by round 21's now-routine re-tally-by-root check:** fix 5/6's
+`label`/assignment-expression changes also fixed one `oberon-a` file that had nothing to do
+with `stj` (`source/OC/OCS.mod`) — `oberon-a` dropped from 21 to 20 failures as a side effect,
+confirmed via `diff` against the pre-round failure list rather than assumed. `amiga-oberon-31`
+(61) and `voc` (4) stayed exactly unchanged throughout, confirmed after every fix.
+
+`tree-sitter test`: 77/77 green (73 before this round + 6 new: `"Record With Type-Bound
+Procedure Field"` in `records.txt`, `"STJ-Oberon trap-bound procedure"` and `"STJ-Oberon
+assignable nested procedure"` in `procedures.txt`, `"STJ-Oberon Return Caret"`, `"STJ-Oberon
+Arithmetic Case Label"`, `"STJ-Oberon Assignment Expression"` in `statements.txt`), plus 2
+existing tests (`"Case Label Range"`, `"Case Statement With Else"`) regenerated for fix 5's
+tree-shape change.
+
+M1 is still below its ≥95% exit criterion (89.27%, up from 84.09%). Post-round-22 failure
+counts by root: `stj` **0** (done), `amiga-oberon-31` 61 (untouched — still `STRUCT`/
+`UNTRACED POINTER` scoped to Phase 2 plus the open `Break.mod`/`NoGuru.mod` dual-header
+deferral, no fresh non-deferred work available), `oberon-a` 20 (8 non-Oberon stub files + 2
+NUL-byte files + `OberonLib.mod` dual-header + 2 string-escape-ambiguity files, all previously
+flagged, plus 7 not-yet-triaged one-offs — see `NEXT.md`), `voc` 4 (unchanged, all deferred
+per round 20). With `stj` fully clear, round 23 should either raise the three still-open
+scoping questions with the user (`Break.mod`/`NoGuru.mod`, `OberonLib.mod`, `\"`
+string-escape) since they're now the main thing blocking further `amiga-oberon-31`/`oberon-a`
+progress, or sample `oberon-a`'s 7 untriaged one-offs / `voc`'s 4 remaining next.

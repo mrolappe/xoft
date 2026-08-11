@@ -56,6 +56,18 @@ bool tree_sitter_oberon2_external_scanner_scan(void *payload, TSLexer *lexer, co
     for (;;) {
       if (lexer->eof(lexer)) return false;
 
+      if (lexer->lookahead == ';') {
+        // Motorola-style assembler line comment (confirmed via corpus, e.g.
+        // LIBRARY.PRJ/MATHCOM.MOD's "NEG.W D1 ; END" mid-block): skip to the
+        // newline without scanning the comment text for the closing "END"
+        // word, or prose like this falsely terminates the block early.
+        while (!lexer->eof(lexer) && lexer->lookahead != '\n') {
+          lexer->advance(lexer, false);
+        }
+        prev_is_ident = false;
+        continue;
+      }
+
       if (!prev_is_ident && lexer->lookahead == 'E') {
         lexer->mark_end(lexer);
         lexer->advance(lexer, false);

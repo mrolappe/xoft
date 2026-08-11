@@ -40,3 +40,11 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
   rediscover it mid-round** → default to `-a` on every corpus-wide `grep -r`/`grep -rl` against
   these roots; treat a suspiciously low/zero hit count as a signal to re-check against this
   pitfall before trusting the number.
+- **Declared a `tree-sitter generate` conflict against the containing rules instead of the exact
+  symbols the error named** → when the generator suggests "add a conflict for these rules: `X`,
+  `Y`," pair exactly `X`/`Y` first, not a higher-level rule that seems to capture the same idea.
+- **A hand-written (not corpus-copied) test source for a nested-procedure construct parsed with
+  0 errors but wasn't actually testing nesting** → after `--update` succeeds on a hand-written
+  source, read the generated tree before trusting it, especially near an existing
+  bodiless/optional-body alternative; prefer copying the real corpus file's unambiguous
+  structural shape over a minimal invented skeleton.
