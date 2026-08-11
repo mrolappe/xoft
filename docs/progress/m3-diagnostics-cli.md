@@ -53,6 +53,48 @@ observed, not a speculative catalog of every possible parent kind. `docs/plan.md
 ("~8 hand-written broken files" + `insta` snapshots) is expected to surface more real `ERROR`
 contexts to add table entries for; this round doesn't invent them ahead of that evidence.
 
-## M3.2 — `xoft transpile` / `xoft check` + `codespan-reporting` — not started
+## M3.2 — `xoft transpile` / `xoft check` + `codespan-reporting` ✅ (round 30, 2026-08-11)
+
+Two new `xoft-cli` library modules, both I/O-facing per `CLAUDE.md`'s no-I/O-in-core rule —
+`xoft-core` is only ever a consumer here, untouched by this milestone.
+
+`crates/xoft-cli/src/check.rs`: `check_source(filename, text) -> CheckResult` (parses, runs
+`xoft_core::diagnostic::diagnostics` + an empty `RuleRegistry::run` and merges both `Vec`s, then
+renders each via `codespan-reporting`'s `SimpleFiles`/`term::emit` into an in-memory `Buffer`) and
+`check_file(path) -> Result<CheckResult>` (reads bytes, `Document::from_bytes`, delegates).
+`CheckResult { diagnostics: Vec<Diagnostic>, rendered: String }` — both the structured list and
+the rendered text are exposed, so tests (and `transpile`) don't have to re-parse rendered output
+to check facts.
+
+`crates/xoft-cli/src/transpile.rs`: `transpile_file(path) -> Result<TranspileResult>`. Phase 1
+scope was genuinely ambiguous — M5's dialect-mapping rules don't exist yet — so asked the user
+before coding rather than guessing (`docs/plan.md` only says "charset applied at render time" for
+this milestone, nothing about `transpile`'s Phase-1 behavior). Confirmed: `check` plus a lossless
+round-trip through M2's serializer (`serialize::walk` + `serialize::reconstruct`), exercising the
+codec/serializer end-to-end from the CLI for the first time, rather than stubbing the command out.
+`TranspileResult { check: CheckResult, output_bytes: Vec<u8> }`.
+
+`main.rs` gained two new top-level `Command` variants (`Check { file }`, `Transpile { file, out:
+Option<PathBuf> }`), siblings of `Corpus`, matching the existing shape. `check` exits 1 when
+diagnostics are non-empty (prints rendered diagnostics either way, plus a `<file>: OK` line when
+clean); `transpile` writes `output_bytes` to `--out` or stdout (raw bytes via `io::Write`, not
+`println!`, since `Document::to_bytes` can produce non-UTF-8 output) and also exits 1 on
+diagnostics.
+
+`codespan-reporting = "0.12"` added to `xoft-cli/Cargo.toml` (workspace's `tree-sitter` dep also
+added directly to `xoft-cli`, needed to parse in `check.rs`/`transpile.rs`) — first use of this
+dependency anywhere in the workspace, confined to the CLI crate as planned.
+
+Tested in `crates/xoft-cli/tests/check.rs` (2 tests: a clean file has empty diagnostics and empty
+rendering; a broken file's rendered output contains the diagnostic message, a codespan-reporting
+location marker, and the source filename) and `tests/transpile.rs` (2 tests: a clean file and a
+broken file both round-trip byte-identical to their original bytes, the broken one still reporting
+its one diagnostic). All four written before the implementation (TDD, confirmed red via the
+missing-module compile error before writing `check.rs`/`transpile.rs`). One test-writing correction
+caught before it mattered: assumed codespan-reporting's location-marker glyph was `-->`
+(rustc-style); the real rendered output uses `┌─` — caught by running the test red/green rather
+than trusting the assumption, fixed before commit.
+
+`cargo test --workspace` green, 8 tests in `xoft-cli` (4 → 8) + 31 unchanged in `xoft-core`.
 
 ## M3.3 — Broken-source fixtures + `insta` snapshots — not started

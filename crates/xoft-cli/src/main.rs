@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use xoft_cli::manifest::{self, RootsConfig};
+use xoft_cli::{check, transpile};
 
 #[derive(Parser)]
 #[command(name = "xoft", about = "Oberon dialect workbench")]
@@ -17,6 +18,14 @@ enum Command {
     Corpus {
         #[command(subcommand)]
         command: CorpusCommand,
+    },
+    /// Parse a source file and report its diagnostics
+    Check { file: PathBuf },
+    /// Parse a source file, report diagnostics, and round-trip it through the serializer
+    Transpile {
+        file: PathBuf,
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
 }
 
@@ -47,6 +56,33 @@ fn main() -> Result<()> {
             }
             println!("{:>18}  {:>4} files -> {}", "total", m.files.len(), out.display());
             Ok(())
+        }
+        Command::Check { file } => {
+            let result = check::check_file(&file)?;
+            print!("{}", result.rendered);
+            if result.diagnostics.is_empty() {
+                println!("{}: OK", file.display());
+                Ok(())
+            } else {
+                std::process::exit(1);
+            }
+        }
+        Command::Transpile { file, out } => {
+            let result = transpile::transpile_file(&file)?;
+            print!("{}", result.check.rendered);
+            match out {
+                Some(out) => std::fs::write(&out, &result.output_bytes)
+                    .with_context(|| format!("writing {}", out.display()))?,
+                None => {
+                    use std::io::Write;
+                    std::io::stdout().write_all(&result.output_bytes)?;
+                }
+            }
+            if result.check.diagnostics.is_empty() {
+                Ok(())
+            } else {
+                std::process::exit(1);
+            }
         }
     }
 }

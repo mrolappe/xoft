@@ -952,3 +952,21 @@ after the `Parse:` timing line). Reading only the pretty-printed tree would have
 was no `MISSING` node in that case. `Node::is_missing()` via the Rust API sees it correctly
 regardless — when checking whether a construct produces a `MISSING` node, verify through a small
 Rust probe (`node.is_missing()`), not by eyeballing `tree-sitter parse`'s default tree dump.
+
+## Round 30 — 2026-08-11
+
+### Keep a rendering layer's structured output alongside its rendered text, not instead of it
+
+`check.rs`'s `CheckResult` carries both `diagnostics: Vec<Diagnostic>` and `rendered: String`,
+even though the CLI only ever prints `rendered`. The alternative — have `check_source` return just
+the rendered string, since that's all `main.rs` needs — would have forced every test (and later,
+`transpile.rs`, which needs `diagnostics.is_empty()` to decide its own exit code) to re-derive
+facts by string-matching the rendered output (`rendered.contains("assignment")`, `rendered.len()
+== 0` as a proxy for "no diagnostics"). That's fragile in the exact way this round's own `-->` vs.
+`┌─` mistake demonstrates: rendered text is a presentation detail of whichever library does the
+rendering, not a stable contract. Once a codespan-reporting version bump or config change alters
+the glyphs, only the presentation assertions break, not the ones about what was actually found.
+Worth remembering for M3.3 (snapshot tests against rendered text are exactly the right tool there)
+and M6 (the Tauri bridge will want the structured list, not scraped text) — this is a case where
+returning "both the data and its one current view of the data" from a rendering boundary is the
+right shape, not redundant.
