@@ -17,7 +17,12 @@ void tree_sitter_oberon2_external_scanner_deserialize(void *payload, const char 
 // "(*" and closed by "*)", and may be nested. A "(*$" opener is, per D1, the
 // same bracket lexically, just reported as a distinct node kind (pragma).
 static bool is_space(int32_t c) {
-  return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
+  // Must stay in sync with grammar.js's `extras` regex (/[\s ]/) — a
+  // mismatch here means the external scanner declines to skip a character
+  // the grammar's own internal lexer treats as whitespace, which corrupts
+  // GLR's tokenization when the two disagree right at a fork point (round
+  // 20: NBSP immediately before a comment, ahead of a procedure body).
+  return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f' || c == 0xa0;
 }
 
 static bool is_ident_char(int32_t c) {

@@ -637,3 +637,51 @@ first) rather than anything expressible as a grammar-shape fix. Left as a docume
 (`Lists.mod`, `FArrays.mod`) rather than chased — worth minimizing further before the next
 attempt (does *any* two-different-extras-kinds-back-to-back combination trigger it, not just
 NBSP+comment specifically?).
+
+**Round 20 correction: it was not a GLR-internal interaction, it was a concrete, findable
+scanner bug.** The mechanism guessed above was never verified against the actual scanner
+code — round 20 read `src/scanner.c` and found the real cause in five minutes: the external
+scanner's own `is_space()` (used to skip leading whitespace before checking whether a comment
+starts) didn't include NBSP, while `grammar.js`'s `extras` regex (added the same round 19) did.
+Two independent definitions of "whitespace" existing in the same grammar — one in the
+hand-written C scanner, one in the generated-grammar regex — will drift apart the moment either
+one is edited without the other, and the drift only surfaces as a symptom several layers away
+(here: a GLR fork that looks unrelated to whitespace at all). Lesson: when extending what counts
+as an "extra" (whitespace/skippable content), grep for *every* place whitespace is defined
+before declaring done — `grep -n "is_space\|extras" grammar.js src/scanner.c` would have caught
+this in round 19 directly, instead of requiring a round-20 investigation that started from "GLR
+looks broken" and worked backward. More generally: before attributing a parser bug to
+tree-sitter's GLR machinery being mysterious, read the hand-written scanner code first — GLR
+*looks* nondeterministic from the outside, but the actual nondeterminism triggers are almost
+always a concrete, readable line of C.
+
+### A corpus grep for a token pattern can be dominated by comment prose — sample matches by hand before trusting a prevalence count
+
+Round 20 grepped the corpus for bare `N.` (a digit run followed by a literal `.` with no
+trailing digit, e.g. `1.`) to gauge how common a newly-found lexer gap was, expecting a handful
+of hits. It found ~150 across 59 files and treated that as a strong signal the fix was
+high-value — but sampling the actual matches showed nearly all of them were inside comment
+prose (sentences ending in a number: "June 1990.", "Defaults to 10.", "otherwise it returns
+-1.") where the text never reaches the lexer's `real`/`integer` tokens at all (comments are
+opaque external-scanner tokens). A regex over raw source text can't distinguish "inside a
+comment" from "inside code" the way the grammar itself can — only one confirmed occurrence
+(`ulmRandomGenerators.Mod`'s `1. - real`) was actually in live code. Lesson: a prevalence grep
+against raw corpus text is a lead, not a measurement, whenever the pattern could plausibly
+appear in prose — always sample several actual matches by hand (or better, check against
+current parse-failure locations, which are guaranteed to be in live code) before sizing the
+investment around the raw hit count.
+
+### Two corpus facts can both be true and still be mutually exclusive for a lookahead-free lexer — that's a real wall, not a missing regex trick
+
+Round 18 made `real`'s fractional digit mandatory specifically so `2..4` lexes as
+`integer`+`range`+`integer` instead of greedily eating the first `.` into `real`. Round 20 found
+a *different* file relying on the opposite: `1.` as a complete real literal with zero fractional
+digits, in a context where no range operator ever follows. Both are genuine, confirmed corpus
+usage; a single regex-based token cannot satisfy both, because tree-sitter's internal lexer
+(Rust `regex` crate) has no lookahead to ask "is the character after this `.` another `.`, a
+digit, or neither" before committing to how many characters the token consumes — confirming
+(again, more concretely than the general note already in `NEXT.md`) that this class of
+ambiguity needs the external scanner's genuine one-character lookahead (`lexer->lookahead` after
+`advance()`, with the established "return false to roll back" escape hatch used for
+comment/pragma detection), not a cleverer regex. Not yet implemented (see `NEXT.md`) — recorded
+here so the next attempt doesn't re-discover "there's no regex fix for this" from scratch.

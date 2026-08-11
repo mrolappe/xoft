@@ -135,3 +135,38 @@ substitution through a small Python/Bash script that references the character by
 as was eventually done here (`python3` one-liner replacing the exact old string read back from
 the file). Confirm the result by reading the byte content back (`od -c` or `repr()` in Python),
 not by eyeballing the file.
+
+### Round 20: a hand-typed "matching" repro used a regular space where the bug needed an actual NBSP
+
+While minimizing the NBSP+comment repro, several synthetic test files (`/tmp/x9.mod`,
+`/tmp/x10.mod`, `/tmp/xC.mod`, …) were typed by hand via heredocs to match a failing file's
+shape, including its trailing whitespace — but heredoc-typed whitespace is an ordinary ASCII
+space, not the NBSP the real bug depended on. Every one of these hand-typed variants parsed
+fine, which briefly looked like the failure required extra context (blank lines, comment
+length, import blocks) beyond just "NBSP before comment" — a wrong lead chased through several
+iterations before noticing (via `python3 -c "print(repr(...))"` on both files) that the two
+"identical" files differed in exactly one invisible byte.
+
+**Mitigation:** this is the same class of mistake `docs/errors.md`'s existing NBSP entry
+already warns about (Edit `old_string` silently missing a literal NBSP), but on the *write*
+side this time, not just the edit-match side: whenever a repro's minimality depends on a
+specific non-ASCII byte, construct the repro file programmatically (Python string with an
+explicit `\xa0`/` `) from the very first attempt, never by hand-typing a look-alike
+character into a heredoc — and confirm with `repr()` before trusting a "doesn't reproduce"
+result as signal rather than as a typo.
+
+### Round 20: a corpus grep for "does a string appear before the first `;`" was truncated by inner `;`s in multi-line formal parameter lists
+
+Checking whether every `PROCEDURE -ident` occurrence in `voc` had the expected trailing C
+string before its heading's terminating `;` used a regex that grabbed text up to the *first*
+`;` after the match. For single-line headings this is the real terminator; for multi-line
+headings (formal parameters separated by `;`, e.g. `oocX11.Mod`'s `XCreateImage`) it stopped at
+the first parameter separator instead, several hundred characters before the actual string —
+producing 20 false "no string found" results that looked like exceptions to the pattern being
+investigated, right before the fix was otherwise ready to write.
+
+**Mitigation:** when scanning multi-line constructs for a trailing marker, don't assume the
+first occurrence of the terminator character is the real one — either widen the search window
+generously past what a single-line case would need (a few hundred extra characters cost
+nothing) or match structurally (balance parens) rather than by first-occurrence of a character
+that also appears inside the construct itself.

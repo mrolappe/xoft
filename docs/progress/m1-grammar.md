@@ -938,3 +938,112 @@ M1 is still below its ≥95% exit criterion (78.16%). Post-round-19 failure coun
 `linkedlists.mod`), `oberon-a` 59, `stj` 40, `voc` 10. `voc` dropped the most this round (41→10)
 and is now the smallest-by-far root remaining — worth a dedicated fresh sampling pass next,
 alongside finishing `amiga-oberon-31`'s last 4 non-`STRUCT` files.
+
+## M1.4 continued — round 20 (2026-08-11)
+
+Fixed round 19's known lead first, then ran `voc`'s first dedicated sampling pass (never
+sampled before — 10 failures, smallest root by far), fixing 6 of its 10 files in one shot with
+a single new rule. Asked the user how to scope `Break.mod`'s dual-header conditional
+compilation; they chose to defer the decision rather than implement or formally scope out this
+round, so it stays an open lead. 78.16% → 79.29% (619 → 628/792), +9 files.
+
+1. **The NBSP+comment GLR bug, root cause found and fixed.** Round 19 left `Lists.mod` and
+   `FArrays.mod` failing at a procedure heading where an NBSP is immediately followed by a
+   comment before `BEGIN`, mechanism unknown. Minimized to a 9-line repro (`PROCEDURE
+   Add*(x:INTEGER);<NBSP>\n(* comment *)\n\nBEGIN...END`) and confirmed via `src/scanner.c`
+   read-through: the external scanner's own `is_space()` — used to skip leading whitespace
+   *before* checking whether a comment starts — only recognizes `' ' '\t' '\n' '\r' '\v'
+   '\f'`, not NBSP (`0xa0`), even though `grammar.js`'s `extras` regex (`/[\s ]/`, added
+   round 19) does. When the external scanner is probed at a position starting exactly on an
+   NBSP (which happens constantly, since `comment`/`pragma`/`bracket_pragma` are extras and so
+   almost always "valid" at every lex decision), its whitespace-skip loop doesn't advance past
+   the NBSP, sees a non-`(`/non-`<` character, and declines (returns `false`) — normally
+   harmless (tree-sitter falls back to the internal regex extra for the single NBSP character,
+   then re-probes and finds the comment fine on the next attempt), but the two-different
+   whitespace-recognition boundaries created by this mismatch line up badly with the
+   pre-existing `procedure_decl`/`definition_proc_decl` GLR fork (round 12) at exactly this
+   spot, corrupting which fork survives. Fix: added `|| c == 0xa0` to `is_space()`, with a
+   comment noting it must stay in sync with `extras`. One-line fix once the mechanism was
+   understood; minimizing (binary-searching a real corpus file down from 158 lines to a 9-line
+   synthetic repro, confirming NBSP-alone and comment-alone both parse fine in isolation) took
+   most of the time. New test in `comments.txt` (`"NBSP before comment before BEGIN"`) with a
+   real `\xa0` byte in the source, added via Python (not the `Edit` tool, to avoid the "did
+   `Edit` normalize my literal NBSP" uncertainty round 19 flagged).
+   **Impact:** 78.16% → 78.54% (619 → 622), **+3 files**, all `amiga-oberon-31`: `Lists.mod`,
+   `FArrays.mod`, and the previously-undiagnosed `linkedlists.mod` (turned out to be the same
+   bug — found via a fresh top-down binary search of the file, not yet known to be the same
+   issue going in).
+
+2. **voc's bodiless "external C procedure" heading**, `voc`'s first dedicated sampling pass.
+   `PROCEDURE -ident [formal_params] [": " type] "C source string";` — a `-` mark right after
+   `PROCEDURE` (same slot as Oberon-A's `*` assignable-procedure mark, but a different meaning:
+   this dialect uses it to mark a procedure whose body is a literal C-source string spliced
+   into voc's generated C output at each call site, instead of `BEGIN...END`). Confirmed via
+   corpus grep: 56 occurrences across 6 files (`oocX11.Mod`, `oocXYplane.Mod`, `oocXutil.Mod`,
+   both `oocwrapperlibc.Mod` copies, `ulmSysStat.Mod`), always exactly this shape — no
+   receiver, no body, string always present and always immediately before the final `;` (some
+   headings span 10+ lines of multi-line formal params, which produced false negatives in an
+   early "does a string appear before the first `;`" grep check until the search window was
+   widened past the first `;` inside the parameter list itself). New rule, added as a fourth
+   `procedure_decls` alternative alongside `definition_proc_decl` (same structural family —
+   bodiless heading): `external_proc_decl: $ => seq($.kProcedure, '-', $.ident_def,
+   optional($.formal_params), $.string, ';')`. No conflicts reported. New test in
+   `procedures.txt` (`"voc external C procedure"`).
+   **Impact:** 78.54% → 79.29% (622 → 628), **+6 files**, all `voc`: both `oocwrapperlibc.Mod`
+   copies, `oocX11.Mod`, `oocXYplane.Mod`, `oocXutil.Mod`, `ulmSysStat.Mod` — cleared 6 of
+   `voc`'s 10 failures in one fix, the highest hit-rate of any fix so far.
+
+**Scoping question raised and deferred (not implemented, not scoped out):** `Break.mod` and
+`NoGuru.mod` (2/792, both `amiga-oberon-31`) use `(* $IF X *) MODULE A; (* $ELSE *) MODULE B;
+(* $END *)` — two alternate top-level module headers guarded by conditional-compilation
+pragma-comments, confirmed genuinely structural (the `module` rule only expects one `MODULE
+ident ;`; grepped all `$IF` usage in the root first — 11 files use `$IF` for ordinary
+conditional imports/pragmas, which already parse fine since pragma-comments are opaque extras,
+but only these two duplicate the module header itself). Asked the user whether to scope this
+out to Phase 2 (STRUCT-style), implement it now, or defer the decision; they chose to defer —
+it remains an open lead in `NEXT.md`, not a resolved scoping decision.
+
+**New leads found in `voc`'s remaining 4 failures, not attempted this round:**
+- `MultiArrayRiders.Mod` and `MultiArrays.Mod` both have free-text documentation/usage notes
+  appended *after* the module's closing `END Module.` — not valid Oberon syntax at all (real
+  Oberon compilers stop reading at the closing `.`), e.g. `MultiArrays.Test\nCompiler.Compile
+  \xc MultiArrays.Mod  ~`. The grammar's top-level `module` rule requires EOF right after
+  `module_footer`; tolerating trailing content would need a deliberate "ignore the rest of the
+  file" escape hatch (e.g. an `optional` catch-all token matching to EOF), which is a genuine
+  design question (what should M2's lossless serializer do with such a trailing span?) — not a
+  routine grammar addition, flag before implementing.
+- `ethUnicode.Mod` has literal **binary** bytes after its `END ethUnicode.` (a serialized
+  Native-Oberon font/timestamp object, `Oberon10.Scn.Fnt`/`TimeStamps.New` visible in the raw
+  bytes) — not text at all, not parseable by any grammar extension; almost certainly wants the
+  same "ignore trailing content" mechanism as the two files above, if one gets built.
+- `ulmRandomGenerators.Mod` fails on `1. - real` — a bare real-number literal with **zero**
+  digits after the decimal point, used in an ordinary arithmetic expression. This directly
+  collides with round 18's fix (`real`'s fractional part was made to *require* ≥1 digit
+  specifically to keep `2..4` lexing as `integer(2)` + range(`..`) + `integer(4)` rather than
+  greedily eating the first `.` into `real`). Relaxing the fractional digit count back to
+  optional was confirmed (by hand-tracing tree-sitter's maximal-munch DFA walk) to reopen
+  exactly that regression: for `2..4`, `real` would match `2.` (now a complete 2-char token)
+  before the DFA discovers there's no valid continuation past the second `.`, so maximal munch
+  keeps the longer `real` match over the 1-char `integer`, breaking the range case again. The
+  two facts (`1.` must lex as a complete real; `2..4` must not) can't both be satisfied by a
+  single regex-only token, since tree-sitter's internal lexer (Rust `regex` crate) has no
+  lookahead — this needs the same technique already used for comments/pragmas: move (at least
+  the ambiguous tail of) real-number lexing into the **external scanner**, where
+  `lexer->lookahead` after consuming the first `.` can check "is the next char a digit (keep
+  consuming as real), another `.` (abort, let `integer` + `..` win instead), or neither (accept
+  `N.` as a complete real)". Not attempted this round — a non-trivial change to a token used in
+  nearly every file (real regression risk), confirmed needed for only this one currently-failing
+  file so far (an initial corpus grep for bare `N.` looked like ~150 occurrences across the
+  corpus but turned out to be almost entirely comment prose — e.g. "June 1990." — once sampled
+  by hand; the true prevalence in actual code is unknown and worth checking properly, e.g. by
+  grepping only outside `(* ... *)` spans, before investing in the external-scanner change).
+
+`tree-sitter test`: 67/67 green (65 before this round + 2 new: `"NBSP before comment before
+BEGIN"` in `comments.txt`, `"voc external C procedure"` in `procedures.txt`).
+
+M1 is still below its ≥95% exit criterion (79.29%). Post-round-20 failure counts by root:
+`amiga-oberon-31` 61 (`Break.mod`/`NoGuru.mod` dual-header lead still open, rest is `STRUCT`),
+`oberon-a` 59, `stj` 40, `voc` 4 (2 trailing-garbage, 1 binary, 1 bare-real lexer gap — all
+documented above). `oberon-a` and `stj` haven't had a dedicated sampling pass since rounds 17
+(`stj`) and never (`oberon-a` was last touched round 14, not a full sampling pass) — worth
+picking one for round 21 now that `voc` is nearly clear.

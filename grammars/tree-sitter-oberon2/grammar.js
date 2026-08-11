@@ -169,7 +169,20 @@ module.exports = grammar({
     procedure_decls: $ => choice(
       seq($.procedure_decl, ';'),
       seq($.forward_decl, ';'),
-      $.definition_proc_decl
+      $.definition_proc_decl,
+      $.external_proc_decl
+    ),
+
+    // external_proc_decl = "PROCEDURE" "-" ident_def [formal_params] string ";"
+    // vishap oberon compiler (voc) dialect extension (not in normative EBNF, confirmed via
+    // corpus, 56 occurrences across oocX11.Mod/oocXYplane.Mod/oocXutil.Mod/
+    // oocwrapperlibc.Mod/ulmSysStat.Mod): a bodiless procedure heading marked with a leading
+    // "-", implemented by a literal C-source string trailing the heading instead of a
+    // BEGIN...END body, e.g. `PROCEDURE -sprntf(s: ARRAY OF CHAR): INTEGER
+    // "sprintf((char*)s)";`. voc splices the string into its generated C output at each
+    // call site. No receiver form found in the corpus.
+    external_proc_decl: $ => seq(
+      $.kProcedure, '-', $.ident_def, optional($.formal_params), $.string, ';'
     ),
 
     // const_decl = ident_def "=" const_expresion

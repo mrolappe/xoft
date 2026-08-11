@@ -21,9 +21,9 @@ END Procedures.
       (procedure_body
         (kEnd))
       (ident)))
-    (module_footer
-      (kEnd)
-      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
 
 ====================
 Procedure With Begin
@@ -50,9 +50,9 @@ END Procedures.
         (kBegin)
         (kEnd))
       (ident)))
-    (module_footer
-      (kEnd)
-      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
 
 =========================
 Procedure With Vector Offset
@@ -94,9 +94,9 @@ END Procedures.
       (procedure_body
         (kEnd))
       (ident)))
-    (module_footer
-      (kEnd)
-      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
 
 =========================
 Bodiless Procedure Heading
@@ -169,9 +169,9 @@ END Cia.
               (qualident
                 qualifier: (ident)
                 property: (ident))))))))
-    (module_footer
-      (kEnd)
-      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
 
 =========================
 Procedure With System Flag
@@ -458,6 +458,49 @@ END M.
         (kBegin)
         (kEnd))
       (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====
+voc external C procedure
+====
+
+MODULE M;
+
+PROCEDURE -sprntf(s: ARRAY OF CHAR; t0: ARRAY OF CHAR): INTEGER
+  "sprintf((char*)s, (char*)t0)";
+
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (external_proc_decl
+      (kProcedure)
+      (ident_def
+        (ident))
+      (formal_params
+        (fp_section
+          (ident)
+          (formal_type
+            (kArray)
+            (kOf)
+            (qualident
+              (ident))))
+        (fp_section
+          (ident)
+          (formal_type
+            (kArray)
+            (kOf)
+            (qualident
+              (ident))))
+        (qualident
+          (ident)))
+      (string)))
   (module_footer
     (kEnd)
     (ident)))

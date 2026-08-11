@@ -90,3 +90,56 @@ END BracketPragmaDollar.
     (kEnd)
     (ident)))
 
+====
+NBSP before comment before BEGIN
+====
+
+MODULE NbspComment;
+
+PROCEDURE Add* (x: INTEGER); 
+(* comment *)
+
+BEGIN
+  x := 1;
+END Add;
+
+END NbspComment.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))))
+      (comment)
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (assignment
+              (designator
+                (qualident
+                  (ident)))
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (number
+                        (integer)))))))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
