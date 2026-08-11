@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --workspace
+
+      - name: fixture corpus run
+        run: cargo run -p xoft-cli -- corpus run --roots corpus/fixtures/roots.toml --allowlist corpus/fixtures/allowlist.toml --out corpus/fixtures/report.json
+
+      - name: fail if corpus/fixtures/report.json is stale
+        run: git diff --exit-code corpus/fixtures/report.json

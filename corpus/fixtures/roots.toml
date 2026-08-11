@@ -1,0 +1,16 @@
+# Fixture corpus roots, vendored into this repository so CI can run `xoft corpus run`
+# without the machine-local paths in corpus/roots.toml (see NOTICE.md and docs/plan.md
+# M4.2). A small representative subset only, not a substitute for the full local corpus
+# run in corpus/roots.toml.
+
+[[root]]
+alias = "voc"
+path = "corpus/fixtures/voc"
+origin = "vishap oberon compiler (voc) standard library subset, from github.com/vishaps/voc"
+license = "GPL-3.0"
+
+[[root]]
+alias = "oberon-a"
+path = "corpus/fixtures/oberon-a"
+origin = "Oberon-A 1.6 (Frank Copeland) subset, from Obrn-A_1.6_src.lha on Aminet (aminet.net/package/dev/obero/Obrn-A_1.6)"
+license = "Freeware, under the GNU General Public Licence (Aminet readme's own words)"

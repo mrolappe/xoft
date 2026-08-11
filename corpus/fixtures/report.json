@@ -1,0 +1,25 @@
+{
+  "total_files": 12,
+  "allowlisted_files": 0,
+  "counted_files": 12,
+  "parse_ok": 12,
+  "round_trip_ok": 12,
+  "parse_pct": 100.0,
+  "round_trip_pct": 100.0,
+  "roots": {
+    "oberon-a": {
+      "files": 6,
+      "parse_ok": 6,
+      "round_trip_ok": 6,
+      "allowlisted": 0
+    },
+    "voc": {
+      "files": 6,
+      "parse_ok": 6,
+      "round_trip_ok": 6,
+      "allowlisted": 0
+    }
+  },
+  "failure_histogram": {},
+  "failures": []
+}

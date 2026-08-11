@@ -1,0 +1,3 @@
+# Fixture corpus allowlist (D8, CI-scoped -- see corpus/fixtures/roots.toml). Every
+# vendored fixture file is expected to parse and round-trip clean, so this starts and
+# should stay empty.
