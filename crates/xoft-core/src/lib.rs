@@ -7,3 +7,4 @@ pub mod codec;
 pub mod corpus;
 pub mod grammar;
 pub mod serialize;
+pub mod strip_comments;

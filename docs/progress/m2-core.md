@@ -61,7 +61,28 @@ NEXT.md's round-20 voc failure list, since voc wasn't swept past the first 60 fi
 No new grammar gap found; M2's serializer is confirmed orthogonal to M1's parse coverage, as
 expected.
 
-## M2.3 — `strip_comments` — not started
+## M2.3 — `strip_comments` ✅ (round 27, 2026-08-11)
+
+`crates/xoft-core/src/strip_comments.rs`. `strip_comments(tree, text) -> String` reuses
+`serialize::collect_leaves` (made `pub(crate)`) to walk the same leaves M2.2's `walk` does, but
+drops any leaf whose `kind()` is `"comment"` instead of keeping it — `pragma` and
+`bracket_pragma` are separate node kinds (confirmed via `codegraph_explore` against
+`scanner.c`'s `ts_external_scanner_symbol_map` and `grammar.js`'s `externals`), so they pass
+through unfiltered without any text-sniffing for `$`. A removed comment's bytes are replaced
+with a single space rather than deleted outright — a comment with no other whitespace around it
+(e.g. `THEN(*c*)y`) is its only token separator, and deleting it outright would fuse the two
+neighboring tokens into one (`THENy`), breaking the "output must re-parse" contract from
+`docs/plan.md`. No `Result`/error type, same reasoning as M2.2's `walk`: the leaf walk always
+covers the full input by construction, so there's no runtime failure mode to signal.
+
+Tested in `crates/xoft-core/tests/strip_comments.rs`, all written before the implementation:
+
+- `removes_an_ordinary_comment` — basic deletion.
+- `keeps_a_pragma_comment` / `keeps_a_bracket_pragma` — both pragma surface syntaxes survive.
+- `output_still_parses_with_zero_errors` — the plan's actual contract.
+- `does_not_merge_two_tokens_when_the_comment_was_their_only_separator` — the token-fusion edge
+  case above; without the space substitution this test fails (`THENy` lexes as one identifier,
+  `has_error()` on re-parse).
 
 ## M2.4 — Rule registry (empty in Phase 1) — not started
 

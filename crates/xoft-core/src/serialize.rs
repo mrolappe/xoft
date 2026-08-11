@@ -45,7 +45,7 @@ pub fn reconstruct(spans: &[Span]) -> String {
         .collect()
 }
 
-fn collect_leaves<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
+pub(crate) fn collect_leaves<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
     if node.child_count() == 0 {
         out.push(node);
         return;
