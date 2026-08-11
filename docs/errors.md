@@ -297,3 +297,26 @@ the fixture's bare filename instead of `check_file` with its full path. General 
 accepting any snapshot that renders a filesystem path, check whether the path is
 machine-/checkout-relative; if so, use whichever API takes an explicit logical name instead of one
 that derives the name from `env!`/`std::env::current_dir`/an absolute `Path`.
+
+## Round 34 — 2026-08-11
+
+### CI failed on the first push after `gen-src/` went gitignored — nothing ever regenerated it there
+
+`crates/xoft-core/build.rs` (added round 26) compiles
+`grammars/tree-sitter-oberon2/gen-src/parser.c`. Round 7 (2026-08-10) deliberately moved
+generated tree-sitter output into `gen-src/` and gitignored it, with `src/` kept as symlinks
+into it for `tree-sitter test`/`parse`. That decision was correct in isolation but nobody added
+a step to CI to run `tree-sitter generate` — every round since then happened to run on a machine
+that already had a locally-generated `gen-src/` from when the grammar was last touched, so the
+gap was invisible locally. M4.2 (round 33) added `.github/workflows/ci.yml`, giving this a fresh
+checkout with no `gen-src/` at all for the first time; `cargo test --workspace` failed immediately
+with `cc1: fatal error: .../gen-src/parser.c: No such file or directory`.
+
+**Mitigation:** `.github/workflows/ci.yml` now installs `tree-sitter-cli` via `npm` and runs
+`tree-sitter generate` into `grammars/tree-sitter-oberon2/gen-src` before `cargo test`. Verified
+by moving the local `gen-src/` aside (simulating a fresh checkout), regenerating with the exact
+command CI now runs, and confirming `cargo test --workspace` passes — not just by reading the CI
+log and guessing the fix. General lesson: when a build depends on a gitignored generated
+artifact, a machine that generated it once will keep working silently while CI (or any other
+fresh checkout) breaks on the very first run; test build-from-scratch locally whenever a build
+step starts depending on something gitignored, don't wait for CI to be the first to notice.

@@ -66,3 +66,9 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
   a snapshot that renders a filesystem path, check whether the path is machine-/checkout-relative;
   use an API that takes an explicit logical name (e.g. `check_source(name, text)`) instead of one
   that derives it from `env!`/an absolute `Path`.
+- **`build.rs` compiles `grammars/tree-sitter-oberon2/gen-src/parser.c`, gitignored, but CI never
+  ran `tree-sitter generate` to produce it** → CI failed on the very first push that added it,
+  since a fresh checkout has no `gen-src/` at all. When a build step depends on a gitignored
+  generated artifact, either commit the artifact or make CI regenerate it — verify by simulating
+  a clean checkout (`rm -rf` the generated dir) locally, not just by having it work on a machine
+  where it was already generated once.

@@ -11,6 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - run: npm install -g tree-sitter-cli@0.26.11
+      - run: tree-sitter generate grammars/tree-sitter-oberon2/grammar.js -o grammars/tree-sitter-oberon2/gen-src
       - run: cargo test --workspace
 
       - name: fixture corpus run
