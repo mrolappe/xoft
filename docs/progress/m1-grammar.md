@@ -1421,3 +1421,89 @@ formal-param widenings — not yet re-triaged against round 21/22's category bre
 `OberonLib.mod`/`ErrorMessages.mod`/`OBumpRevMsg.mod` categories are unchanged, so the fixed
 file was one of the 2 trailing-NUL-byte files or the 7 untriaged one-offs — not yet
 distinguished), `voc` 4 (unchanged, all deferred).
+
+## M1.4 continued — `oberon-a` full re-triage, no grammar change (round 25, 2026-08-11)
+
+Picked up round 24's leftover task: re-triage `oberon-a`'s 19 remaining failures (stale since
+the round-24 interleaving fix incidentally fixed one, without re-deriving categories). Confirmed
+the sweep is still 766/792 (96.72%) before starting, per-root unchanged from round 24 (`stj` 0,
+`amiga-oberon-31` 3, `oberon-a` 19, `voc` 4).
+
+**Every one of the 19 traces to an already-scoped-out category -- no new grammar gap found**:
+
+- **8 files** unchanged "moved to..." stub files (short `[0,0]-[3,0]`/`[0,0]-[2,0]` spans),
+  confirmed via file size (87/68 bytes each).
+- **3 files** already-known scoped items: `OberonLib.mod` (dual pragma-guarded `MODULE`
+  headers), `OBumpRevMsg.mod`/`ErrorMessages.mod` (`\"` string-escape, dialect-specific design
+  still not implemented).
+- **2 files** (`HelloWorld.mod`, `Skeleton.mod`): confirmed via `od -c` as a single stray trailing
+  NUL byte at EOF (`od -c` tail: `... 2a 29 0a 0a 00`), unique to exactly these 2 files
+  corpus-wide (checked all 4 roots). **Attempted a fix, had to revert -- see the "near-miss"
+  writeup below and `docs/errors.md` round 25.** NUL (`\0`) is tree-sitter's internal
+  EOF-lookahead sentinel for *both* the external scanner and the generated internal lexer;
+  adding it to `extras`'s regex and the external scanner's `is_space()` made the scanner treat
+  EOF itself as skippable whitespace, so `advance()` at EOF never progresses and the skip loop
+  spins forever -- reproduced as a hang on `tree-sitter test` (killed at 20+ min CPU-bound) and
+  even a trivial one-line file (`MODULE M; END M.`, still hanging after `timeout 30`). Caught
+  before committing anything: reverted both the `grammar.js` extras regex and `scanner.c`'s
+  `is_space()` back to their exact prior state (confirmed via `git diff` showing zero changes),
+  regenerated, reran `tree-sitter test` -- clean 85/85 again. **This byte is not safely fixable
+  at the grammar level**; left scoped out, same tier as the stub files.
+- **1 file** (`AsciiTexts.Mod`): a single stray 0xFE byte right after the closing `END
+  AsciiTexts.` and before the trailing newline (`od -An -tx1` tail: `2e fe 0a`) -- corpus-wide
+  grep (`grep -rlaP '\xfe'`) confirms it's unique to this one file. Same corpus-artifact
+  category as the NUL pair above (single stray byte at EOF, no other occurrence anywhere in the
+  root); not attempted given the NUL case's risk profile.
+- **1 file** (`Obsolete/GTEvents.mod`): starts with `@DATABASE "GTEvents.mod"` -- a bare
+  AmigaGuide autodoc directive with no enclosing `(* *)`, before the `MODULE` keyword even
+  appears. Corpus-wide check (`head -c20 | grep '^@DATABASE'`) confirms this is the only file in
+  the entire root with this preamble; it's also the only failing file living under
+  `source/Obsolete/`. One-off legacy/malformed file, not a dialect construct.
+- **4 files** (`Kernel.mod`, `IntuiPointerDemo.mod`, `amiga/Utility.mod`, plus confirming
+  `amiga-oberon-31`'s already-deferred `Break.mod`/`NoGuru.mod`) -- all the **same feature**:
+  Amiga Oberon's real conditional-compilation preprocessor, in either of two surface syntaxes
+  confirmed via direct reads:
+  - Comment-embedded `$IF`/`$ELSE`/`$END` markers (`Break.mod` line 9: `(* $IF BreakRq *) MODULE
+    BreakRq; (* $ELSE *) MODULE Break; (* $END *)`; `IntuiPointerDemo.mod` line 20: `(* <*IF
+    OberonA THEN*> $IF OberonA *)` wrapping a full duplicated `IMPORT`/`VAR` section).
+  - Bare bracket-pragma `<*IF x THEN*> ... <*ELSE*> ... <*END*>` (`Kernel.mod` lines 47-51, two
+    full `MODULE Kernel [...]` headers; `Utility.mod` line 733, two full statements with no `;`
+    between them: `SYS.GETREG(12, h.data)` / `h.data := NIL`).
+  In every case **both branches' full code are present unconditionally**, back to back, with no
+  real separator token between them (the pragma markers are extras/comments, invisible to the
+  grammar) -- no single Oberon-2 parse tree can represent this; it requires an actual text
+  preprocessing pass, keyed on pragma-defined symbols (`DEBUG1`, `OberonA`, `SMALLDATA`,
+  `RESIDENT`, `BreakRq`, ...), to select one branch *before* parsing. This is the same feature as
+  round 20/23's already-deferred "dual pragma-guarded `MODULE` header" scoping item -- that was
+  this feature applied at the module-header position specifically; `Utility.mod`/
+  `IntuiPointerDemo.mod` show it applies just as much to `IMPORT`/`VAR`/statement positions.
+  Diagnosed via a detour into `amiga/Intuition.mod`'s huge, misleading `ERROR
+  [3266,0]-[4666,0]` span: bisected down to a 27-line repro (`MODULE Test; TYPE ... HitTest ...
+  END; (* HitTest *)<0x08>\n(* big comment *) CONST ...`) before spotting an invisible single
+  stray backspace byte (`0x08`, `grep -c $'\x08'` confirms unique to this one file) sitting right
+  after the `RECORD`'s closing comment. Once the real single-byte cause was found, `Intuition.mod`
+  joined the "one-off corpus byte" category, *not* the preprocessing one -- the misleadingly huge
+  span was an artifact of tree-sitter's error-recovery invoking the `ASSEMBLER_BODY` external
+  scanner (which greedily scans to the next bare "END") on every external-token type it knows
+  about once real parsing fails, unrelated to any actual `ASSEMBLER` keyword in the file. So
+  `Intuition.mod` is in fact a 5th one-off single-stray-byte file (`HelloWorld.mod`,
+  `Skeleton.mod`, `AsciiTexts.Mod`, `Intuition.mod`) alongside the 1 malformed-preamble file
+  (`GTEvents.mod`).
+
+User confirmed (round 25 `AskUserQuestion`): declare `oberon-a` done at 19/792 remaining, don't
+implement conditional-compilation preprocessing this round, don't chase the one-off corpus-byte
+files. **96.72% (766/792) stands, unchanged this round** -- no grammar or scanner diff landed
+(the NUL attempt was fully reverted). Conditional-compilation preprocessing is now a
+better-scoped Phase 2 backlog item (was previously just "dual pragma-guarded MODULE headers";
+now known to be one instance of a general feature spanning module headers, import lists,
+variable sections, and statements).
+
+### Near-miss: NUL byte in `extras` hung the whole parser, not just the target files
+
+Full writeup in `docs/errors.md` round 25 and `docs/checklist.md`. Short version: tree-sitter
+uses lookahead value `0` as its internal EOF sentinel in both the external-scanner API and the
+generated internal lexer. Any grammar/scanner change that treats byte value `0` as ordinary
+skippable content (whitespace, an extra, etc.) makes EOF look like more input to skip, and the
+skip loop never terminates. This is different in kind from the NBSP fix (round 19/20) -- NBSP is
+real content that happens to look like whitespace; NUL fills a reserved sentinel role in the
+lexer's own protocol and must never be treated as ordinary input.

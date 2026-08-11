@@ -54,3 +54,7 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
 - **Modeled `BPOINTER` as a modifier keyword like its sibling `UNTRACED`, without checking its
   own corpus line** → a second dialect keyword found alongside one just confirmed can still have
   an unrelated grammar shape; verify each one against real source individually.
+- **Added NUL (byte 0) to `extras`/`is_space()` to tolerate a stray trailing byte, hung the whole
+  parser on every input** → tree-sitter uses lookahead value 0 as its own EOF sentinel; never
+  add byte 0 to whitespace/extras tolerance. If a `tree-sitter test`/`parse` run doesn't return
+  in seconds after a lexer change, suspect the change first — check on a trivial one-line file.

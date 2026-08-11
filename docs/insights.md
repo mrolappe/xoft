@@ -873,3 +873,36 @@ mistake — reading the EBNF's grouping as an upper bound on repetition instead 
 against the corpus — worth checking any other still-single-instance EBNF group (this grammar has
 already been burned by this twice now) before assuming it's actually singular in the dialects
 this project targets.
+
+## Round 25 — 2026-08-11
+
+### A byte value can be reserved by the tool's own protocol, not just by the grammar
+
+Chasing two `oberon-a` files with a stray trailing NUL byte, the instinct was to treat it like
+round 19/20's NBSP fix — a real byte that happens to look like whitespace, tolerable via
+`extras` and the external scanner's `is_space()`. NUL is different in kind: tree-sitter uses
+lookahead value `0` as its own internal EOF sentinel, in both the external-scanner API and the
+generated internal lexer. Treating it as ordinary skippable content means EOF itself now looks
+like "more whitespace to skip," and the skip-loop that calls `advance()` never terminates,
+because advancing past EOF doesn't change the lookahead. This hung on every input, not just the
+target files — even a one-line trivial module. The general lesson: before extending a
+grammar/scanner to tolerate a raw byte value, check whether that value has a reserved meaning in
+the *tool's* protocol (EOF sentinels, escape/control bytes used by the parsing engine itself),
+not only whether it collides with another grammar rule. A byte that's safe to add to `\s`-style
+tolerance in one lexer generator can be unsafe in another for reasons that have nothing to do
+with the language being parsed.
+
+### One dialect feature can wear two different surface syntaxes across files
+
+`amiga-oberon-31`'s `Break.mod`/`NoGuru.mod` (round 20/23, dual `MODULE` headers) and
+`oberon-a`'s `Kernel.mod`/`Utility.mod`/`IntuiPointerDemo.mod` (round 25) turned out to be the
+same underlying feature — Amiga Oberon's conditional-compilation preprocessor — diagnosed
+independently, three rounds apart, because the surface syntax differs: some files wrap the
+directives in a plain `(* $IF x *)`/`(* $ELSE *)`/`(* $END *)` comment convention, others use the
+bare bracket-pragma form `<*IF x THEN*>`/`<*ELSE*>`/`<*END*>` this grammar already tokenizes for
+an unrelated purpose (compiler-hint pragmas). Recognizing "this is the same scoped-out item, not
+a new one" required reading the actual bytes of both, not pattern-matching on which token forms
+appeared. When two failures in different corpus roots produce a structurally similar symptom
+(two full declarations/statements present unconditionally, no separator between them), check
+whether they're the same feature in a different dialect's spelling before treating either as a
+one-off.

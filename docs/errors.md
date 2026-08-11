@@ -239,3 +239,42 @@ showed `BPOINTER` fully replaces `POINTER`, never co-occurring with it.
 **Mitigation:** when a second dialect keyword surfaces alongside one just confirmed (same grep,
 same root, superficially similar semantics), read its own corpus line before assuming it shares
 the first one's grammar shape — don't extrapolate from a sibling's already-confirmed shape.
+
+## Round 25 — 2026-08-11
+
+### Added tree-sitter's own EOF sentinel byte (NUL) to `extras`/`is_space()`, hung the entire parser
+
+Two `oberon-a` files (`HelloWorld.mod`, `Skeleton.mod`) end with a single stray NUL byte after
+the final `END Module.` and blank line. Modeled the fix on round 19/20's NBSP precedent: widen
+`grammar.js`'s `extras` regex and `scanner.c`'s `is_space()` to also treat NUL as skippable
+whitespace. `tree-sitter generate` initially rejected a literal backslash-zero escape in the
+regex (the Rust regex parser reads it as a backreference), so the fix used a ` ` escape
+instead — that part generated cleanly and looked correct on inspection.
+
+Running `tree-sitter test` afterward never returned: it was still running after 20+ minutes at
+about 99% CPU. Suspecting the two target files specifically, tried `tree-sitter parse` on one in
+isolation — same hang. Then tried a trivial one-line file (`MODULE M; END M.`) — also hung, even
+wrapped in `timeout 30`, which normally would have killed it (the `timeout` process itself sat
+idle while its child kept spinning, meaning the child wasn't responding to the signal in any
+useful timeframe). A hang on a trivial file with no NUL byte anywhere in it, immediately after
+touching `is_space()`, was the signal that the change itself was broken, not the target files.
+
+Root cause: tree-sitter uses lookahead value 0 as its internal EOF sentinel — both
+`TSLexer.lookahead` in the external-scanner API and the generated internal lexer's DFA represent
+"no more input" as byte 0. `is_space()` returning true for that value means the
+leading-whitespace-skip loop (`while (is_space(lexer->lookahead)) advance(...)`) treats EOF
+itself as another space character to skip past — but `advance()` at EOF is a no-op on
+`lookahead` (it's already at the end), so the loop spins forever on every single parse, whether
+or not the input actually contains a NUL byte.
+
+**Mitigation:** killed the runaway `tree-sitter test`/`tree-sitter parse` processes, reverted
+both the `grammar.js` extras regex and `scanner.c`'s `is_space()` to their exact prior text
+(verified via `git diff` showing zero diff on either file), regenerated, and reran `tree-sitter
+test` — clean 85/85 again, confirming the codebase was undamaged. Before adding any raw byte
+value to a lexer's whitespace/extras tolerance, check first whether that value is reserved by
+the lexer generator's own protocol (EOF/error sentinels), not just whether it's safe with
+respect to the grammar being written — a byte that's inert at the grammar level can still be
+load-bearing at the tool level. When a `tree-sitter test`/`parse` run doesn't return in a few
+seconds on ordinary input, suspect the just-made change before suspecting a slow GLR blowup on a
+specific file — confirm by testing the smallest possible input (a one-line trivial module) in
+isolation.
