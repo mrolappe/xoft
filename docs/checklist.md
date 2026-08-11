@@ -58,3 +58,7 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
   parser on every input** → tree-sitter uses lookahead value 0 as its own EOF sentinel; never
   add byte 0 to whitespace/extras tolerance. If a `tree-sitter test`/`parse` run doesn't return
   in seconds after a lexer change, suspect the change first — check on a trivial one-line file.
+- **Always wrap `tree-sitter parse`/`tree-sitter test`/any tree-sitter CLI call in `timeout N`**
+  (a few seconds for one file, more for the full suite) — a scanner/grammar bug can hang it
+  indefinitely (round 25 ran 20+ min unguarded before being noticed), and an unguarded call
+  gives no fast signal that the just-made change is the cause.

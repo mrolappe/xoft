@@ -85,8 +85,13 @@ from pathlib import Path
 p = Path('<absolute corpus path from roots.toml>/<relative path from sweep output>')
 Path('/tmp/x.mod').write_text(p.read_text(encoding='latin-1'), encoding='utf-8')
 "
-tree-sitter parse /tmp/x.mod | grep -n "ERROR\|MISSING"   # find EVERY error node, not just the summary line
+timeout 10 tree-sitter parse /tmp/x.mod | grep -n "ERROR\|MISSING"   # find EVERY error node, not just the summary line
 ```
+
+**Always wrap `tree-sitter parse`/`tree-sitter test`/any tree-sitter CLI call in `timeout N`**
+(N ~10s for one file, ~60s for the full suite) — round 25 hung a scanner bug into an unguarded
+20+ minute spin before anyone noticed; a timeout turns that into an immediate, obvious signal
+that the just-made change broke something. Never run these commands bare.
 
 Corpus files are Latin-1 except `voc` (UTF-8); always transcode Latin-1 roots before feeding to
 `tree-sitter parse`. Always `grep -a` (or `grep -na`) against these roots — a suspiciously
