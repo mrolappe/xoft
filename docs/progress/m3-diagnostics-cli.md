@@ -97,4 +97,87 @@ than trusting the assumption, fixed before commit.
 
 `cargo test --workspace` green, 8 tests in `xoft-cli` (4 → 8) + 31 unchanged in `xoft-core`.
 
-## M3.3 — Broken-source fixtures + `insta` snapshots — not started
+## M3.3 — Broken-source fixtures + `insta` snapshots ✅ (round 31, 2026-08-11)
+
+8 hand-written broken `.mod` files in `crates/xoft-cli/tests/fixtures/broken/`, snapshotted via
+`insta` over `check_source`'s rendered `codespan-reporting` output in
+`crates/xoft-cli/tests/broken_fixtures.rs`. Each fixture's real parse shape (which node ends up
+`MISSING` vs. `ERROR`, and its parent kind) was probed first against the actual grammar — a
+throwaway `crates/xoft-core/tests/_scratch_probe.rs`, deleted before committing, per the
+checklist's "hand-wrote an expected tree from memory" mitigation — several first-draft sources
+didn't reproduce the intended failure once actually parsed (see below) and were revised before
+becoming fixtures.
+
+Fixture location: `crates/xoft-cli/tests/fixtures/broken/*.mod`, committed source (not
+tempdir-generated, unlike `manifest.rs`'s tests) — decided without asking the user, the layout
+insta itself expects (`.snap` files next to the test) settled the natural counterpart location for
+committed inputs. One parametrized `#[test]` iterates a `CASES` table (file, snapshot name,
+expected diagnostic count, expected message substrings) rather than 8 separate `#[test]` fns —
+per round 30's insight, structural facts (count, message content) are asserted against
+`CheckResult::diagnostics` directly, the snapshot only covers the rendered text.
+
+One design correction made before the first snapshot was accepted: `check_file` (which renders the
+absolute checkout path into the codespan-reporting output) would have baked a
+machine-specific/CI-specific absolute path into every committed `.snap` file. Switched to
+`check_source(case.file, &text)` with the fixture's bare filename instead — caught by actually
+looking at the first `stored new snapshot` diff before accepting, not assumed.
+
+The 8 fixtures (final sources, after probing ruled out several non-reproducing first drafts):
+
+- `unbalanced_parens.mod` — genuine `MISSING ")"`, same category as `xoft-core`'s own
+  `diagnostic.rs` test but a distinct file/message text, per `NEXT.md`'s explicit instruction not
+  to reuse that exact source.
+- `unbalanced_begin_end.mod` — a stray extra `END;` before the module's real `END` surfaces as an
+  `ERROR` node whose immediate parent is `"module"` — genuinely new, not covered by M3.1's table.
+  First draft (`BEGIN` nested inside an `IF`'s `THEN` arm, mimicking a block-structured language)
+  didn't reproduce a clean unbalanced-BEGIN/END failure at all — Oberon's `IF` has no nested
+  `BEGIN...END`, so probing caught the wrong mental model before it shipped as a fixture.
+- `bad_case_label.mod` — a `+` where a `CASE` label was expected misparses as a unary-operator
+  factor with a `MISSING ident` operand.
+- `if_no_matching_end.mod` — an `IF...ELSIF` chain with no closing `END` pushes the whole file into
+  one root-level `ERROR` (same fallback path as `diagnostic.rs`'s own IF-no-`END` test, but a
+  different source shape — adds an `ELSIF` arm — so the fixture isn't a byte-identical duplicate).
+- `malformed_procedure_heading.mod` — a formal parameter with no type after `:` gets a
+  `MISSING ident` inside `formal_type`'s `qualident`.
+- `stray_token_in_declaration.mod` — a bare `RETURN` keyword where a declaration was expected
+  (outside any procedure) is also an `ERROR` node parented by `"module"` — same new table entry as
+  `unbalanced_begin_end.mod`; probing confirmed a corpus-plausible mistake (a misplaced keyword)
+  hits the identical grounded context as a structurally unrelated mistake (an extra `END`), which
+  is why the new table entry's message ("unexpected token in module body") is deliberately generic
+  enough to cover both truthfully rather than describing only the case it was first noticed on.
+- `missing_semicolon.mod` — the table's pre-existing `"assignment"`-parent entry, exercised by a
+  fresh file (different variable names/values than `diagnostic.rs`'s fixture, per `NEXT.md`).
+  Probing initially got a *different*, non-matching shape (parent `"module"`, generic fallback)
+  from a source using a binary-expression right-hand side (`a := b + 1`); switching to a bare
+  numeric literal (`a := 10`), matching `diagnostic.rs`'s original fixture's shape more closely,
+  reproduced the `"assignment"`-parent case — confirms round 28's insight that recovery shape
+  depends on the surrounding grammar path, not just "a `;` is missing" in the abstract.
+- `two_diagnostics.mod` — two independent `PROCEDURE` headings, each with `malformed_procedure_heading.mod`'s
+  same mistake, produce two separate `MISSING ident` diagnostics in one file (not yet exercised by
+  anything before this). Getting a genuine *second* diagnostic took several failed attempts:
+  anything that made the parser fall into `ERROR`-node recovery (as opposed to a clean, localized
+  `MISSING`-token insertion) caused it to swallow everything up to the file's final `END` into one
+  giant `ERROR` span, regardless of how many independent mistakes the source actually contained —
+  confirmed empirically via the scratch probe across five source variants before finding a shape
+  (two independent, self-contained `MISSING`-producing procedure headings) that actually yields two
+  diagnostics. Worth remembering: this grammar's `ERROR`-node recovery is not scoped per-mistake,
+  only `MISSING`-node insertion is.
+
+`error_message` (`crates/xoft-core/src/diagnostic.rs`) gained one new grounded entry from this
+round's probing: `parent.kind() == "module"` → `"unexpected token in module body"`, covering both
+new contexts found (stray keyword, extra `END`) rather than one message per fixture — table stays
+keyed on parent kind only, consistent with M3.1's original design, not widened to also inspect the
+`ERROR` node's own child kind just to get a more specific-sounding message for one fixture.
+
+`insta = "1.48.0"` added as a dev-dependency to `xoft-cli` only (`cargo add --dev insta`, no
+feature flags needed — plain-text `assert_snapshot!` is the default). Snapshots accepted via
+`INSTA_UPDATE=always`, not hand-typed, confirmed by first running the suite red (missing
+`"module"` table entry) before the table fix, then green in one pass after.
+
+`cargo test --workspace` green: `xoft-cli` 8 → 9 (one new parametrized test covering all 8
+fixtures + their structural assertions); `xoft-core` unchanged (28) except the `error_message`
+table's `"module"` arm, which doesn't add a test count on its own — covered by the CLI-side
+fixture test rather than a new `xoft-core`-level unit test, since the table entry's own
+correctness is only meaningful in terms of what actually gets rendered.
+
+**M3 is done** — all three sub-milestones (M3.1, M3.2, M3.3) complete.

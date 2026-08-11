@@ -1,0 +1,15 @@
+---
+source: crates/xoft-cli/tests/broken_fixtures.rs
+expression: result.rendered
+---
+error: unexpected syntax
+  ┌─ if_no_matching_end.mod:1:1
+  │  
+1 │ ╭ MODULE IfNoMatchingEnd;
+2 │ │ VAR x: INTEGER;
+3 │ │ BEGIN
+4 │ │   IF x = 1 THEN
+  · │
+8 │ │ END IfNoMatchingEnd.
+9 │ │ 
+  │ ╰^

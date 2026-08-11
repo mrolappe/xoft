@@ -1,0 +1,9 @@
+---
+source: crates/xoft-cli/tests/broken_fixtures.rs
+expression: result.rendered
+---
+error: unexpected token in module body
+  ┌─ stray_token_in_declaration.mod:3:1
+  │
+3 │ RETURN
+  │ ^^^^^^

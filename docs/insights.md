@@ -970,3 +970,25 @@ Worth remembering for M3.3 (snapshot tests against rendered text are exactly the
 and M6 (the Tauri bridge will want the structured list, not scraped text) — this is a case where
 returning "both the data and its one current view of the data" from a rendering boundary is the
 right shape, not redundant.
+
+## Round 31 — 2026-08-11
+
+### This grammar's `ERROR`-node recovery is not scoped per-mistake; `MISSING`-node insertion is
+
+Trying to build M3.3's "two diagnostics in one file" fixture surfaced a real property of the
+parser's error recovery, not just a fixture-design nuisance. A `MISSING` node (a single token GLR
+can insert with zero width, e.g. a missing `)`) stays localized — the rest of the file parses
+normally around it, and two independent `MISSING`-producing mistakes in two independent
+constructs (two procedure headings, each missing a parameter type) really do produce two separate
+diagnostics. An `ERROR` node (real tokens get skipped/re-synced around) does not: once triggered,
+it swallows every subsequent token — including a second, unrelated procedure's entire body — up to
+whatever the *outermost* still-valid resumption point is (usually the module's final `END`), even
+when the source contains two obviously distinct mistakes a human would report separately. Five
+source variants were tried (two broken assignments, two broken procedures with `RETURN`
+statements, etc.) before landing on one that avoided `ERROR`-recovery entirely. Consequence for
+future diagnostic work: "how many diagnostics does a broken file produce" is not predictable from
+counting mistakes in the source — it depends on whether each mistake's local recovery stays a
+`MISSING` insertion or escalates to an `ERROR` span, and one `ERROR` span can hide arbitrarily many
+downstream real mistakes from ever being reported at all (relevant if M5 or later ever wants
+"report every error in the file" as a UX goal — this grammar's recovery doesn't give that for
+free).

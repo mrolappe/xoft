@@ -1,0 +1,15 @@
+---
+source: crates/xoft-cli/tests/broken_fixtures.rs
+expression: result.rendered
+---
+error: ident
+  ┌─ two_diagnostics.mod:2:15
+  │
+2 │ PROCEDURE P(x: );
+  │               ^
+
+error: ident
+  ┌─ two_diagnostics.mod:5:15
+  │
+5 │ PROCEDURE Q(y: );
+  │               ^

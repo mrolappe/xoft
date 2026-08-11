@@ -62,3 +62,7 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
   (a few seconds for one file, more for the full suite) — a scanner/grammar bug can hang it
   indefinitely (round 25 ran 20+ min unguarded before being noticed), and an unguarded call
   gives no fast signal that the just-made change is the cause.
+- **Nearly baked an absolute checkout path into a committed `insta` snapshot** → before accepting
+  a snapshot that renders a filesystem path, check whether the path is machine-/checkout-relative;
+  use an API that takes an explicit logical name (e.g. `check_source(name, text)`) instead of one
+  that derives it from `env!`/an absolute `Path`.

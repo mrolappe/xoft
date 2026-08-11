@@ -19,6 +19,10 @@ fn error_message(node: Node) -> String {
         // Observed case: a missing statement separator makes the next statement's value
         // misparse as an ERROR node directly inside the prior "assignment".
         Some("assignment") => "unexpected token in assignment (missing ';'?)".to_string(),
+        // Observed cases (M3.3 fixtures): a stray token at module scope -- either a keyword
+        // where a declaration/statement was expected, or a spurious extra "END" before the
+        // module's own -- surfaces as an ERROR node directly inside "module".
+        Some("module") => "unexpected token in module body".to_string(),
         _ => "unexpected syntax".to_string(),
     }
 }

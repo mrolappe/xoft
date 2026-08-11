@@ -1,0 +1,9 @@
+---
+source: crates/xoft-cli/tests/broken_fixtures.rs
+expression: result.rendered
+---
+error: ident
+  ┌─ bad_case_label.mod:5:6
+  │
+5 │     +: x := 1
+  │      ^

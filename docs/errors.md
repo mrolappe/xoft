@@ -278,3 +278,22 @@ load-bearing at the tool level. When a `tree-sitter test`/`parse` run doesn't re
 seconds on ordinary input, suspect the just-made change before suspecting a slow GLR blowup on a
 specific file — confirm by testing the smallest possible input (a one-line trivial module) in
 isolation.
+
+## Round 31 — 2026-08-11
+
+### Nearly committed `insta` snapshots with the checkout's absolute path baked in
+
+M3.3's first fixture test called `check_file(&fixture_path)`, where `fixture_path` was built from
+`env!("CARGO_MANIFEST_DIR")` — an absolute path specific to this checkout. `check_file` renders
+that path straight into the `codespan-reporting` output (`┌─ /Users/.../tests/fixtures/broken/
+unbalanced_parens.mod:4:14`), which `insta` would then have written verbatim into a committed
+`.snap` file. The snapshot would have failed on every other machine (a different clone directory)
+and in CI, not because the diagnostic logic changed but because the path did.
+
+**Mitigation:** looked at the actual `stored new snapshot` diff before accepting the first one,
+rather than trusting `INSTA_UPDATE=always` to always be safe to accept blind — the absolute path
+was visible immediately. Switched the fixture test to call `check_source(case.file, &text)` with
+the fixture's bare filename instead of `check_file` with its full path. General lesson: before
+accepting any snapshot that renders a filesystem path, check whether the path is
+machine-/checkout-relative; if so, use whichever API takes an explicit logical name instead of one
+that derives the name from `env!`/`std::env::current_dir`/an absolute `Path`.

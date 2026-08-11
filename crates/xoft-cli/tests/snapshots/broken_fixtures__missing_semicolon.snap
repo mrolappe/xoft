@@ -1,0 +1,9 @@
+---
+source: crates/xoft-cli/tests/broken_fixtures.rs
+expression: result.rendered
+---
+error: unexpected token in assignment (missing ';'?)
+  ┌─ missing_semicolon.mod:4:8
+  │
+4 │   a := 10
+  │        ^^

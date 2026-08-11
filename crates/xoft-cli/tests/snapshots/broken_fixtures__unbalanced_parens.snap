@@ -1,0 +1,9 @@
+---
+source: crates/xoft-cli/tests/broken_fixtures.rs
+expression: result.rendered
+---
+error: )
+  ┌─ unbalanced_parens.mod:4:14
+  │
+4 │   x := (1 + 2
+  │              ^
