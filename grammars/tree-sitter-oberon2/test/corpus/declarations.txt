@@ -123,6 +123,70 @@ END Constants.
     (kEnd)
     (ident)))
 
+=====================================
+Adjacent string literals concatenate
+=====================================
+
+MODULE Constants;
+  CONST
+    template =
+      "FILE/A,MAKEICONS/S," (* first part *)
+      "TO/K,EXPAND/S";
+END Constants.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (const_decls
+    (kConst)
+    (const_decl
+      (ident_def
+        (ident))
+      (const_expression
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (string)
+                (comment)
+                (string))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=================================================
+Underscore-Continued Identifier After A Keyword Prefix
+=================================================
+
+MODULE Constants;
+  CONST
+    TYPE_HGROUP * = 1;
+END Constants.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (const_decls
+    (kConst)
+    (const_decl
+      (ident_def
+        (ident)
+        (kStar))
+      (const_expression
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (number
+                  (integer)))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
 ===============
 Qualident Type
 ===============

@@ -1047,3 +1047,123 @@ M1 is still below its ≥95% exit criterion (79.29%). Post-round-20 failure coun
 documented above). `oberon-a` and `stj` haven't had a dedicated sampling pass since rounds 17
 (`stj`) and never (`oberon-a` was last touched round 14, not a full sampling pass) — worth
 picking one for round 21 now that `voc` is nearly clear.
+
+## M1.4 continued — `oberon-a`'s first full sampling pass: 4 fixes, +38 files (round 21, 2026-08-11)
+
+Picked `oberon-a` per round 20's note (59 failures, never had a dedicated sampling pass).
+Sampled broadly rather than one construct at a time — each fix's cross-file impact kept
+revealing the next cluster underneath it. 79.29% → 84.09% (628 → 666/792), **+38 files**, the
+biggest single-round jump so far. All four fixes landed in `oberon-a` only; re-tallied by root
+after each one and confirmed zero cross-dialect impact this round (unlike rounds 18–20) —
+`amiga-oberon-31` (61), `stj` (40), and `voc` (4) are untouched, which is itself a signal for
+round 22: `amiga-oberon-31` shares plenty of Amiga-specific syntax with `oberon-a` (both are
+Amiga Oberon-2 dialects) but none of today's four bugs reached it, meaning its 61 failures are
+a structurally different cluster (mostly `STRUCT`/`UNTRACED POINTER`, scoped out since round 9)
+worth re-examining fresh rather than assuming it's "more of the same."
+
+1. **Adjacent string literals concatenate, C-style.** `template = "FILE/A,MAKEICONS/S,"
+   (* comment *) ",FORCE/S";` — multi-line `CONST` string values and data tables built from
+   several consecutive string literals with no operator between them, sometimes with a
+   per-segment comment in between (`(* image data line 1, color 1 *)` between 4-byte binary
+   string segments in a sprite-data table). Confirmed via corpus grep across the *failing*
+   files specifically (14/59, not a raw whole-corpus grep — round 20's "prose pollutes grep"
+   lesson applied preemptively): `factor`'s `$.string` arm became `seq($.string,
+   repeat($.string))` — a single string factor is unaffected (still exactly one `$.string`
+   child in the tree), this only adds the previously-impossible 2+-strings case. No new
+   conflicts. New test in `declarations.txt` (`"Adjacent string literals concatenate"`).
+   **Impact:** 79.29% → 80.93% (628 → 641), **+13 files**, all `oberon-a`.
+
+2. **Nested nested-procedure_decls exponential GLR blowup — root cause found, not just a
+   symptom patch.** Whole-file `ERROR` wrapping otherwise-perfectly-parsed subtrees (every
+   `const_decls`/`import_list`/procedure heading inside the `ERROR` node was individually
+   valid) on files with **8 or more** consecutive bodyless procedure headings (Oberon-A's
+   Amiga library-interface files declare dozens in a row, e.g. `MathIEEESingBas.mod`'s 12
+   `PROCEDURE Foo* [base,-N] (...) : REAL;` headings with no body). Root-caused by direct
+   bisection (built synthetic repros doubling/incrementing the count of repeated bodyless
+   procedures until the break point, rather than guessing): NOT the `[base,-N]`
+   `square_vector_offset` or the `[0]` `reg_spec` param markers (tested each in isolation up to
+   20 repetitions with no failure) — the trigger is purely the *count* of consecutive bodyless
+   headings before a real body-having one, breaking reproducibly at exactly 8. Traced to
+   `procedure_body`'s nested declaration repeat reusing the full `procedure_decls` choice
+   (all 4 arms, including bodyless `definition_proc_decl`/`external_proc_decl`) for *nested*
+   procedure declarations too. Since a bodyless heading has no `END` to anchor against, GLR
+   must keep every possible nesting of N consecutive bodyless headings live simultaneously (is
+   heading 2 nested inside heading 1's still-open body, or its sibling? heading 3 nested in 1,
+   in 2, or a sibling of both?) — a combinatorial blowup that overwhelms the parser past ~7 in a
+   row. `docs/language-baseline.md`'s own `DeclSeq` EBNF confirms nested declarations should
+   only ever be `ProcDecl ";" | ForwardDecl ";"` (baseline line 73) — bodyless headings were
+   never meant to nest inside a procedure body in the first place, dialect or not. Fix:
+   `procedure_body`'s nested repeat now uses its own narrower
+   `repeat(choice(seq($.procedure_decl, ';'), seq($.forward_decl, ';')))` instead of
+   `repeat($.procedure_decls)`, removing bodyless headings from the nested position entirely —
+   they're still fully legal at the *module* level via `procedure_decls`, unchanged. No new
+   conflicts (the `[procedure_decl, definition_proc_decl]` conflict entry is still needed and
+   still fires, just no longer compounds). New test in `procedures.txt` (`"Many Bodiless
+   Procedures Before A Real Body"`, 9 bodyless headings + 1 real body, generated via
+   `tree-sitter test --update` scoped to just that test with `-i` rather than hand-writing the
+   expected tree).
+   **Impact:** 80.93% → 82.20% (641 → 651), **+10 files**, all `oberon-a`.
+
+3. **Underscore missing from the identifier continuation set.** `identifier = seq(letter,
+   repeat(choice(letter, digit)))` had no `'_'` — so `TYPE_HGROUP` lexed as keyword `TYPE`
+   (4 chars, maximal munch stops there since `_` isn't `letter | digit`) immediately followed
+   by an unparseable `_HGROUP` fragment. Found by tracing a whole-file-flattened `ERROR` down to
+   its exact column: `type_decls [31, 2] - [31, 6]` containing only a bare `kType` with no
+   `type_decl` children, at the exact source column of the `_` in `TYPE_HGROUP`. These are Amiga
+   API constant names lifted straight from C headers (`TYPE_HGROUP`, `SM_MINSIZE`, `ERROR_OK`),
+   a naming convention standard Oberon-2 (`letter {letter | digit}`, no underscore) never
+   anticipated. Corpus-checked before fixing (round 20's lesson: verify prevalence, and
+   Latin-1 files need `grep -a` or they're silently skipped — confirmed both): 72 `oberon-a`
+   files (of 237 total in that root), 35 `amiga-oberon-31`, 13 `voc`, 0 `stj`. No existing
+   grammar rule uses a standalone
+   `'_'` token, so extending `identifier` to `seq(letter, repeat(choice(letter, digit, '_')))`
+   was unambiguous and safe. New test in `declarations.txt` (`"Underscore-Continued Identifier
+   After A Keyword Prefix"`).
+   **Impact:** 82.20% → 83.46% (651 → 661), **+10 files**, all `oberon-a` — cleared the entire
+   remaining `EAGUI/` cluster and both `OC`/`ol` `*PrefsGUI.mod` files in one shot, on top of
+   scattered singles elsewhere.
+
+4. **Module-level external object-file name.** `MODULE [4] Classface ["Classface.o"];` — the
+   same bracketed-string-list shape `external_code_names` already gives a *procedure* heading
+   (`PROCEDURE Foo* ["_Foo"]`), but here trailing the *module* header instead, naming the
+   external `.o` file the module binds to. `module_header` gained an
+   `optional($.external_code_names)` before its terminal `;`, reusing the existing rule rather
+   than duplicating it — no new conflicts. New test in `module.txt` (`"module system flag with
+   external name"`).
+   **Impact:** 83.46% → 84.09% (661 → 666), **+5 files**: `Classface.mod`,
+   `Obsolete/BoopsiUtil.mod`, `Obsolete/RexxUtil.mod` (all 3 confirmed via corpus grep to be the
+   only files with this shape) plus 2 more that had layered this issue under one of fixes 1–3.
+
+**New lead found, not attempted — corpus evidence is directly contradictory, needs a human
+call, not a guess:** `ErrorMessages.mod` and `OBumpRevMsg.mod` (both FlexCat-generated catalog
+files, "Do NOT edit by hand") embed multi-line C-template text as adjacent string literals
+containing `\"` (backslash-quote), apparently expecting backslash-escape processing so the `"`
+doesn't end the string early — e.g. `"...\"%ld.%ld.%ld\";\n" "..."`. But `string_literal`'s
+current regex (`/"[^"\n]*"/`, no escape handling at all) is exactly right for a *different*,
+already-passing corpus idiom: `voc`'s `ulmPrint.Mod`/`Printer.Mod` use `"\"` as a complete
+string containing exactly one literal backslash character (standard Oberon-2 strings don't
+escape at all — a bare `\` is just an ordinary character, and `"` always closes the string
+regardless of what precedes it). Making `string_literal` escape-aware to fix the first pair
+would break the second: `(\\.|[^"\\\n])*` treats `"\"` 's `\"` as an escaped quote and runs
+past the intended close, swallowing everything up to the next real quote. Confirmed both
+directions via direct corpus grep for `\"` inside `"..."` before touching anything (5 files
+total: 2 `oberon-a`, 1 `amiga-oberon-31`, 2 `voc` — 3 of the 5 currently pass and would
+regress). Standard Oberon-2 has no string-escape syntax at all per the language report, so
+neither reading is obviously "more correct" — this is a genuine dialect-ambiguity scoping
+question (same category as `Break.mod`'s dual header), not a routine fix. Flag to the user
+before attempting either direction.
+
+`tree-sitter test`: 71/71 green (68 before this round + 4 new: `"Adjacent string literals
+concatenate"` and `"Underscore-Continued Identifier After A Keyword Prefix"` in
+`declarations.txt`, `"Many Bodiless Procedures Before A Real Body"` in `procedures.txt`,
+`"module system flag with external name"` in `module.txt`).
+
+M1 is still below its ≥95% exit criterion (84.09%). Post-round-21 failure counts by root:
+`amiga-oberon-31` 61 (untouched this round — `Break.mod`/`NoGuru.mod` dual-header lead still
+open, rest is `STRUCT`/`UNTRACED POINTER`), `oberon-a` 21 (8 non-Oberon "moved to..." stub
+files + 2 trailing-NUL-byte files + `OberonLib.mod`'s own dual-header case + 2 backslash-escape
+files above + ~8 not yet individually triaged), `stj` 40 (untouched, no dedicated pass since
+round 17), `voc` 4 (unchanged, all deferred per round 20). `oberon-a`'s remaining failures are
+mostly one-offs now rather than a cluster — round 22 should pick `stj` (40, oldest untouched
+cluster) or `amiga-oberon-31` (61, biggest remaining root, never explained why today's fixes
+didn't reach it) over squeezing `oberon-a`'s last ~10 files further.

@@ -173,6 +173,186 @@ END Cia.
     (kEnd)
     (ident)))
 
+===========================================
+Many Bodiless Procedures Before A Real Body
+===========================================
+
+MODULE ManyBodiless;
+  PROCEDURE P0* (x : REAL) : REAL;
+  PROCEDURE P1* (x : REAL) : REAL;
+  PROCEDURE P2* (x : REAL) : REAL;
+  PROCEDURE P3* (x : REAL) : REAL;
+  PROCEDURE P4* (x : REAL) : REAL;
+  PROCEDURE P5* (x : REAL) : REAL;
+  PROCEDURE P6* (x : REAL) : REAL;
+  PROCEDURE P7* (x : REAL) : REAL;
+  PROCEDURE P8* (x : REAL) : REAL;
+  PROCEDURE Close (VAR rc : LONGINT);
+  BEGIN
+  END Close;
+END ManyBodiless.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident))
+        (formal_params
+          (fp_section
+            (kVar)
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
 =========================
 Procedure With System Flag
 =========================

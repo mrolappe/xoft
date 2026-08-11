@@ -15,7 +15,12 @@ const
   ),
 
   // ident = letter {letter | digit}
-  identifier = seq(letter, repeat(choice(letter, digit))),
+  // Oberon-A/AmigaOberon/voc dialect extension (round 21, corpus-confirmed across 72
+  // oberon-a + 35 amiga-oberon-31 + 13 voc files): underscore as an identifier
+  // continuation character, e.g. `TYPE_HGROUP`, `SM_MINSIZE` — C-header-derived Amiga API
+  // constant names. Without it "TYPE_HGROUP" lexes as keyword `TYPE` followed by an
+  // unparseable `_HGROUP`, since `_` isn't a valid token-start on its own.
+  identifier = seq(letter, repeat(choice(letter, digit, '_'))),
 
 
   // scale_factor = ("E" | "D") ["+" | "-"] digit {digit}
@@ -94,7 +99,14 @@ module.exports = grammar({
         $.module_footer
       )
     ),
-    module_header: $ => seq($.kModule, optional($.sysflag), $.ident, ';'),
+    // Oberon-A dialect extension (round 21, corpus-confirmed in Classface.mod,
+    // Obsolete/BoopsiUtil.mod, Obsolete/RexxUtil.mod): a module-level external object-file
+    // name, e.g. `MODULE [4] Classface ["Classface.o"];` — same bracketed-string shape
+    // `external_code_names` already gives a procedure heading, reused here rather than
+    // duplicating the node.
+    module_header: $ => seq(
+      $.kModule, optional($.sysflag), $.ident, optional($.external_code_names), ';'
+    ),
 
     // sysflag = "[" integer "]"
     // Oberon-A dialect extension (not in normative EBNF, confirmed via corpus and docs/OC.doc):
@@ -411,10 +423,24 @@ module.exports = grammar({
     // the report's "RETURN only at the end" restriction isn't reflected in
     // the EBNF's Statement production and the corpus uses RETURN mid-body
     // (early return inside IF branches).
+    // Nested declarations are deliberately narrower than `procedure_decls` (round 21):
+    // baseline DeclSeq (docs/language-baseline.md) only nests `ProcDecl ";" | ForwardDecl
+    // ";"`, never a bodyless heading. Corpus-confirmed, e.g. Oberon-A's Amiga library-interface
+    // files declare dozens of consecutive bodyless `definition_proc_decl`s at MODULE level, and
+    // that ambiguity is genuinely unresolvable until a real "END" is reached — with
+    // `definition_proc_decl` included here too, GLR must keep every possible nesting of N
+    // consecutive bodyless headings live simultaneously (is proc 2 nested in proc 1's body, or
+    // proc 1's sibling? proc 3 in proc 1, proc 2, or a sibling of both?), a combinatorial
+    // (Catalan-like) blowup that overwhelms the parser past ~7 consecutive bodyless procedures
+    // in a row (confirmed by direct bisection, not guessed). Since a bodyless heading is never
+    // legitimately nested inside another procedure's body anyway (it's a top-level-only library
+    // stub, not a local declaration), excluding it here removes the ambiguity entirely without
+    // losing any real construct: every bodyless heading always has a genuine, nearby "END" to
+    // anchor against.
     procedure_body: $ => seq(
       //$.declaration_seq,
       repeat(choice($.const_decls, $.type_decls, $.variable_decls)),
-      repeat($.procedure_decls),
+      repeat(choice(seq($.procedure_decl, ';'), seq($.forward_decl, ';'))),
       optional(seq($.kBegin, optional($.statement_seq))),
       $.kEnd
     ),
@@ -481,9 +507,15 @@ module.exports = grammar({
     // evidence as "AND" above, often used together). designator already folds
     // actual_params into its own repeat (see below), so factor no longer needs a
     // separate trailing slot for it.
+    // Oberon-A dialect extension (round 21, corpus evidence across 14 oberon-a files,
+    // e.g. OC.mod's `template = "NS=..." (* comment *) ",FORCE/S";`): adjacent string
+    // literals concatenate, C-style, used to spread long CONST strings and data tables
+    // across lines with a per-line comment. A single string factor is unaffected (still
+    // exactly one $.string child); this only adds the 2+-strings case, which was
+    // previously an ERROR.
     factor: $ => choice(
       $.number,
-      $.string,
+      seq($.string, repeat($.string)),
       $.kNil,
       $.kTrue,
       $.kFalse,

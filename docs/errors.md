@@ -170,3 +170,20 @@ first occurrence of the terminator character is the real one — either widen th
 generously past what a single-line case would need (a few hundred extra characters cost
 nothing) or match structurally (balance parens) rather than by first-occurrence of a character
 that also appears inside the construct itself.
+
+### Round 21: the already-documented "raw `grep -r` skips Latin-1 files" lesson was forgotten and had to be rediscovered mid-round
+
+Checking underscore-identifier prevalence across the four corpus roots, the first `grep -rlE`
+pass (no `-a`) reported only 1 matching file in `oberon-a` — implausibly low given the failing
+file being investigated (`EAGUI.mod`) alone had 53 matches. The undercount was silently caused
+by the exact issue already recorded in `NEXT.md`/`docs/insights.md` from round 18 (`grep -r`
+over the raw corpus skips Latin-1 files unless given `-a`) — a lesson that was read at the start
+of this round but not actively checked against before running a fresh grep, only noticed because
+the result looked obviously wrong (one file, when direct inspection already showed 53 hits in a
+single file) rather than from applying the rule proactively.
+
+**Mitigation:** having a lesson recorded is not the same as applying it — when writing a *new*
+corpus-wide `grep -r`/`grep -rl` command against these roots specifically, default to including
+`-a` every time rather than adding it reactively after a suspiciously-low count; treat "surprise
+zero or near-zero hit count for something known to be common" as itself a signal to re-check
+the command against the known Latin-1 pitfall before trusting the number.

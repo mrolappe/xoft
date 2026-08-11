@@ -685,3 +685,74 @@ ambiguity needs the external scanner's genuine one-character lookahead (`lexer->
 `advance()`, with the established "return false to roll back" escape hatch used for
 comment/pragma detection), not a cleverer regex. Not yet implemented (see `NEXT.md`) — recorded
 here so the next attempt doesn't re-discover "there's no regex fix for this" from scratch.
+
+## Round 21 — 2026-08-11
+
+### A whole-file `ERROR` wrapping otherwise-valid children is a different diagnostic signature than a localized `ERROR` deep in the tree — read it accordingly
+
+Several round-21 failures showed `(ERROR [0,0] - [N,0] (comment ...) (module_header ...)
+(import_list ...) (const_decls ...) ...)` — every child individually well-formed (correct node
+types, correct nesting), just sitting as flat siblings directly under one `ERROR` at the very
+top instead of wrapped in a `module` node. That shape means the *outermost* rule failed to
+reduce even though every piece it's built from parsed fine — i.e., look at what's structurally
+different about the very first or very last child (or, as in fix 3 this round, the exact
+column where a child stops short), not at "some construct deep inside is unsupported." This is
+the opposite diagnostic move from a localized `(ERROR [x,y]-[x,y+1])` nested several levels
+down, which does mean a specific token/construct at that exact position is the problem. Telling
+the two apart first (one `grep -n "ERROR\|MISSING"` on the full parse tree, not just the
+summary line) saved real time this round — e.g. it immediately ruled out "the reg_spec/
+square_vector_offset params are wrong" for `MathIEEESingBas.mod` (those parsed as valid
+children under the flat `ERROR`) and pointed at "something about the file's outer structure"
+instead.
+
+### Finding a GLR combinatorial-blowup bug: bisect by repetition count, not by construct
+
+`MathIEEESingBas.mod` (12 bodiless procedure headings) failed whole-file; a hand-guess at which
+specific procedure heading's syntax was wrong would have been slow and wrong (it wasn't any
+single heading's syntax — every one parsed fine alone). Instead: built a minimal synthetic file
+with N copies of the *same* trivial bodyless-heading template followed by one real body-having
+procedure, and swept N from 1 upward. It passed through N=7 and failed at N=8, exactly and
+reproducibly. That number is itself the diagnostic: a real syntax gap fails at every N≥1 (or
+never), while a threshold that only appears past a specific count is the signature of GLR
+ambiguity whose live-branch count grows with repetition (here: how many ways N consecutive
+anchor-less — no `END` — declarations could nest inside each other, a combinatorial/Catalan-like
+count). Once the shape (count-triggered, not content-triggered) was confirmed, isolating *which*
+grammar position allowed the anchor-less alternative to recurse (`procedure_body`'s nested
+declaration repeat, reusing the full module-level `procedure_decls` including bodyless variants)
+was a five-minute grep, not more guessing. General lesson: when a parser failure's boundary
+tracks a *count* rather than a specific token, suspect GLR ambiguity that compounds with
+repetition, and confirm by varying the count in isolation before touching the grammar.
+
+### A grammar rule reused in two structurally different positions can be correct in one and wrong in the other — check baseline EBNF for each position separately, not just once
+
+`procedure_decls` (all four bodyless/body-having variants) is valid at the *module* level per
+the dialect extensions already implemented in earlier rounds. Round 12 reused it verbatim for
+procedure_body's *nested* declarations too, reasoning "it's the same kind of declaration." But
+`docs/language-baseline.md`'s own `DeclSeq` EBNF (line 73) already specifies nested declarations
+as strictly `ProcDecl ";" | ForwardDecl ";"` — narrower than what's legal at the module level in
+every dialect variant this grammar supports. The reuse wasn't wrong when it was written (it
+didn't cause a visible failure until enough consecutive bodyless headings existed in one corpus
+file to trigger the GLR blowup), but it was never actually licensed by the baseline for that
+*position*. Lesson: when reusing a rule in a second position, re-check the baseline EBNF for
+that specific position rather than assuming "legal at the outer level" transfers to "legal when
+nested" — Oberon's own grammar deliberately allows less inside a procedure body than at module
+scope.
+
+### Two corpus dialect idioms can want opposite lexer behavior for the same byte sequence — recognize the `Break.mod`-shaped question early and stop, rather than pick a side
+
+`\"` (backslash-quote) inside a double-quoted string appears in two corpus files wanting it
+read as an *escaped quote* (FlexCat-generated catalog text, `ErrorMessages.mod`/
+`OBumpRevMsg.mod`) and in two other, currently-*passing* files relying on it being a complete
+*one-character string* with no escape processing at all (`ulmPrint.Mod`/`Printer.Mod`'s `"\"`
+idiom — standard Oberon-2 has no string-escape syntax, so a bare `\` is just an ordinary
+character and `"` always closes regardless of what precedes it). Grepping for the pattern across
+*all four* corpus roots before writing any regex (not just the two failing files) surfaced the
+conflict immediately — the same "check prevalence and direction before assuming a fix is safe"
+discipline as round 20's comment-prose lesson, but here the payoff was catching a genuine
+one-fix-breaks-another-file conflict rather than just an inflated hit count. This is
+structurally the same category as round 20's `Break.mod` dual-header question (deferred, not
+scoped out, not implemented) — a case where the corpus itself contains contradictory evidence
+about the dialect's actual rules, and no amount of additional sampling resolves it without a
+human call. Recognizing the shape early (two *already-confirmed*, *opposite* readings of the
+same syntax) is faster than what round 20 needed to reach the same kind of stop, since it didn't
+require a scoping conversation to notice — just grepping both directions before coding.

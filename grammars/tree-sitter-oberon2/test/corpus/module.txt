@@ -119,6 +119,26 @@ END Hello.
     (kEnd)
     (ident)))
 
+====================================
+module system flag with external name
+====================================
+
+MODULE [4] Hello ["Hello.o"];
+END Hello.
+---
+
+(module
+  (module_header
+    (kModule)
+    (sysflag
+      (integer))
+    (ident)
+    (external_code_names
+      (string)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
 ====================
 module begin close end
 ====================
