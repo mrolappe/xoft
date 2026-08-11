@@ -992,3 +992,33 @@ counting mistakes in the source — it depends on whether each mistake's local r
 downstream real mistakes from ever being reported at all (relevant if M5 or later ever wants
 "report every error in the file" as a UX goal — this grammar's recovery doesn't give that for
 free).
+
+### A whole-file `ERROR` span localizes fast by truncating lines, not by reading
+
+M4.1's real corpus run left one file (`voc/ulm/ulmRandomGenerators.Mod`, 421 lines) reporting a
+single `ERROR` node spanning line 1 to EOF — the least informative diagnostic shape, since it
+gives no hint which of hundreds of lines actually caused it. Rather than reading the file
+looking for something suspicious, bisected mechanically: `head -n N` the source, append a
+throwaway `END X.` to keep the truncated prefix independently parseable, run `xoft check`,
+binary-search `N`. Six `check` calls (50/100/150/200 → 142/144/146) narrowed 421 lines to a
+14-line window, which then read as an obvious cause on inspection: `(1. - real - real)`, a
+bare-decimal real literal with no digit after the `.`. This generalizes past this one file —
+any single-`ERROR`-spanning-everything diagnostic is a bisection target, not a reading
+assignment, since the span itself carries zero localization information once recovery gives up
+on the whole file.
+
+### A grammar comment's "no real-world corpus code relies on X" is a claim about corpus coverage *at the time it was written*, not a permanent fact
+
+`grammar.js`'s `real` rule requires ≥1 digit after `.` specifically to avoid `..`-range
+ambiguity, with a comment justifying the narrowing: "no real-world corpus code relies on [bare
+`2.`]." That was true against however much of the corpus M1's rounds had sampled by the time it
+was written. M4.1's full-corpus, round-trip-inclusive sweep (the first time every file in all
+four roots was actually run, not just M1's incremental sampling passes) found the one
+counter-example (`ulmRandomGenerators.Mod`'s `1.`) that claim didn't anticipate. Neither M1 nor
+this round's narrowing decision was wrong given the evidence available at the time — the lesson
+is that a scoping comment grounded in "the corpus doesn't do this" is only as strong as how much
+of the corpus was actually checked, and a later, more exhaustive pass over the same corpus can
+legitimately falsify it. Treat such comments as a recorded belief with a known evidence horizon,
+worth re-checking (not just re-trusting) whenever a more complete sweep becomes possible —
+which is exactly why M4.1 asked the user rather than silently allowlisting or silently
+reopening M1 on its own judgment.

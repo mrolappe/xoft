@@ -17,20 +17,23 @@ pub struct TranspileResult {
     pub output_bytes: Vec<u8>,
 }
 
-pub fn transpile_file(path: &Path) -> Result<TranspileResult> {
-    let raw = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
-    let doc = Document::from_bytes(&raw);
-    let filename = path.display().to_string();
-
-    let check = check_source(&filename, &doc.text);
+/// Parse, diagnose, and round-trip already-decoded source text. Split out of
+/// `transpile_file` so callers that already hold the bytes (e.g. `corpus run`, which reads
+/// each file once for the manifest walk) don't re-read the file to reuse this logic.
+pub fn transpile_source(filename: &str, text: &str) -> TranspileResult {
+    let check = check_source(filename, text);
 
     let mut parser = tree_sitter::Parser::new();
     parser.set_language(&grammar::language()).expect("grammar loads");
-    let tree = parser
-        .parse(&doc.text, None)
-        .expect("parse always returns a tree");
-    let rebuilt = serialize::reconstruct(&serialize::walk(&tree, &doc.text));
+    let tree = parser.parse(text, None).expect("parse always returns a tree");
+    let rebuilt = serialize::reconstruct(&serialize::walk(&tree, text));
 
     let output_bytes = Document { text: rebuilt }.to_bytes();
-    Ok(TranspileResult { check, output_bytes })
+    TranspileResult { check, output_bytes }
+}
+
+pub fn transpile_file(path: &Path) -> Result<TranspileResult> {
+    let raw = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    let doc = Document::from_bytes(&raw);
+    Ok(transpile_source(&path.display().to_string(), &doc.text))
 }

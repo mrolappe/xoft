@@ -1,0 +1,146 @@
+# Corpus exclusions (D8): files excluded from the parse/round-trip pass-fail count,
+# capped at 5% of the corpus (~40 of 792 files). Each entry needs a one-line reason.
+# Built from an actual `xoft corpus run` (round 32), not ported blind from prior
+# grammar-milestone notes -- every reason below was re-confirmed against the file's real
+# bytes/diagnostic this round. 26/792 (3.28%), all round-trip clean; every failure is a
+# parse-only gap. See docs/progress/m4-corpus-runner.md for the full derivation.
+
+# --- Amiga Oberon's real conditional-compilation preprocessor (comment-embedded $IF/
+# $ELSE/$END or bracket-pragma <*IF*>/<*ELSE*>/<*END*>): both branches' full code present
+# unconditionally, no separator token between them -- no single Oberon-2 parse tree can
+# represent this; needs a text-preprocessing pass keyed on pragma symbols. Phase 2 backlog
+# (docs/progress/m1-grammar.md rounds 20/23/25).
+[[entry]]
+root = "amiga-oberon-31"
+path = "Module/Break.mod"
+reason = "dual pragma-guarded MODULE headers ($IF BreakRq / $ELSE / $END), conditional-compilation preprocessor not implemented"
+
+[[entry]]
+root = "amiga-oberon-31"
+path = "Module/NoGuru.mod"
+reason = "dual pragma-guarded MODULE headers, same conditional-compilation preprocessor gap as Break.mod"
+
+[[entry]]
+root = "amiga-oberon-31"
+path = "Module/OberonLib.mod"
+reason = "$IF LibLink conditional-compilation block mid-declaration, same preprocessor gap"
+
+[[entry]]
+root = "oberon-a"
+path = "examples/amok/IntuiPointer/IntuiPointerDemo.mod"
+reason = "$IF OberonA wraps a full duplicated IMPORT/VAR section, same preprocessor gap"
+
+[[entry]]
+root = "oberon-a"
+path = "source/Kernel/Kernel.mod"
+reason = "bracket-pragma <*IF x THEN*> wraps two full MODULE Kernel [...] headers, same preprocessor gap"
+
+[[entry]]
+root = "oberon-a"
+path = "source/Library/OberonLib.mod"
+reason = "dual pragma-guarded MODULE headers, same conditional-compilation preprocessor gap"
+
+[[entry]]
+root = "oberon-a"
+path = "source/amiga/Utility.mod"
+reason = "bracket-pragma wraps two full statements with no separator between them, same preprocessor gap"
+
+# --- "moved to..." stub files: 87 or 68 bytes, a placeholder body, nothing to parse as a
+# real module. Confirmed via file size, all 8 identical in shape (round 25).
+[[entry]]
+root = "oberon-a"
+path = "source/AmigaUtil/Args.mod"
+reason = "87-byte 'moved to...' stub file, not a real module body"
+
+[[entry]]
+root = "oberon-a"
+path = "source/AmigaUtil/BoopsiUtil.mod"
+reason = "87-byte 'moved to...' stub file, not a real module body"
+
+[[entry]]
+root = "oberon-a"
+path = "source/AmigaUtil/HookUtil.mod"
+reason = "87-byte 'moved to...' stub file, not a real module body"
+
+[[entry]]
+root = "oberon-a"
+path = "source/AmigaUtil/RexxUtil.mod"
+reason = "87-byte 'moved to...' stub file, not a real module body"
+
+[[entry]]
+root = "oberon-a"
+path = "source/Library/BigSets.mod"
+reason = "87-byte 'moved to...' stub file, not a real module body"
+
+[[entry]]
+root = "oberon-a"
+path = "source/Library/StdIO.mod"
+reason = "87-byte 'moved to...' stub file, not a real module body"
+
+[[entry]]
+root = "oberon-a"
+path = "source/ProjectOberon/Files.mod"
+reason = "68-byte 'moved to...' stub file, not a real module body"
+
+[[entry]]
+root = "oberon-a"
+path = "source/framework/GTEvents.mod"
+reason = "87-byte 'moved to...' stub file, not a real module body"
+
+# --- one-off stray bytes: a single non-source byte unique to this one file corpus-wide
+# (confirmed via corpus-wide grep, round 25), not a dialect construct.
+[[entry]]
+root = "oberon-a"
+path = "source/FPE/HelloWorld.mod"
+reason = "single stray trailing NUL byte at EOF, unique to this file (and Skeleton.mod) corpus-wide"
+
+[[entry]]
+root = "oberon-a"
+path = "source/Misc/Skeleton.mod"
+reason = "single stray trailing NUL byte at EOF, unique to this file (and HelloWorld.mod) corpus-wide"
+
+[[entry]]
+root = "oberon-a"
+path = "examples/Oberon0/AsciiTexts.Mod"
+reason = "single stray 0xFE byte right after the closing END, unique to this file corpus-wide"
+
+[[entry]]
+root = "oberon-a"
+path = "source/amiga/Intuition.mod"
+reason = "single stray 0x08 backspace byte after a RECORD's closing comment, unique to this file corpus-wide"
+
+# --- other known gaps ---
+[[entry]]
+root = "oberon-a"
+path = "source/OBumpRev/OBumpRevMsg.mod"
+reason = "uses a backslash-quote string escape, dialect-specific design not yet implemented"
+
+[[entry]]
+root = "oberon-a"
+path = "source/OEL/ErrorMessages.mod"
+reason = "uses a backslash-quote string escape, same gap as OBumpRevMsg.mod"
+
+[[entry]]
+root = "oberon-a"
+path = "source/Obsolete/GTEvents.mod"
+reason = "starts with a bare @DATABASE AmigaGuide autodoc directive, no enclosing (* *), before MODULE even appears"
+
+[[entry]]
+root = "voc"
+path = "misc/MultiArrayRiders.Mod"
+reason = "trailing Oberon System tool-command text after END (e.g. 'MultiArrayRiders.Test1 (4D)'), not part of the module"
+
+[[entry]]
+root = "voc"
+path = "misc/MultiArrays.Mod"
+reason = "trailing Oberon System tool-command text after END (e.g. 'System.Free MultiArrays~'), not part of the module"
+
+[[entry]]
+root = "voc"
+path = "s3/ethUnicode.Mod"
+reason = "binary resource data (an embedded Oberon10.Scn.Fnt font blob) concatenated after END, not source text"
+
+[[entry]]
+root = "voc"
+path = "ulm/ulmRandomGenerators.Mod"
+reason = "uses a bare-decimal real literal ('1.', no digit after the point); grammar.js's `real` rule requires >=1 trailing digit to disambiguate from the '..' range operator -- confirmed the sole corpus counter-example to that call (round 32), user confirmed keep allowlisted rather than reopen M1"

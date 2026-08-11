@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use xoft_cli::corpus_run::{self, Allowlist};
 use xoft_cli::manifest::{self, RootsConfig};
 use xoft_cli::{check, transpile};
 
@@ -38,6 +39,15 @@ enum CorpusCommand {
         #[arg(long, default_value = "corpus/manifest.json")]
         out: PathBuf,
     },
+    /// Parse + round-trip every corpus file, honoring corpus/allowlist.toml (D8)
+    Run {
+        #[arg(long, default_value = "corpus/roots.toml")]
+        roots: PathBuf,
+        #[arg(long, default_value = "corpus/allowlist.toml")]
+        allowlist: PathBuf,
+        #[arg(long, default_value = "reports/corpus-report.json")]
+        out: PathBuf,
+    },
 }
 
 fn main() -> Result<()> {
@@ -56,6 +66,34 @@ fn main() -> Result<()> {
             }
             println!("{:>18}  {:>4} files -> {}", "total", m.files.len(), out.display());
             Ok(())
+        }
+        Command::Corpus {
+            command: CorpusCommand::Run { roots, allowlist, out },
+        } => {
+            let config: RootsConfig = toml::from_str(
+                &std::fs::read_to_string(&roots)
+                    .with_context(|| format!("reading {}", roots.display()))?,
+            )?;
+            let allowlist: Allowlist = toml::from_str(
+                &std::fs::read_to_string(&allowlist)
+                    .with_context(|| format!("reading {}", allowlist.display()))?,
+            )?;
+            let report = corpus_run::run(&config.root, &allowlist)?;
+            std::fs::write(&out, serde_json::to_string_pretty(&report)? + "\n")?;
+            println!(
+                "parse: {:.2}%  round-trip: {:.2}%  ({} counted, {} allowlisted, {} total) -> {}",
+                report.parse_pct,
+                report.round_trip_pct,
+                report.counted_files,
+                report.allowlisted_files,
+                report.total_files,
+                out.display()
+            );
+            if report.parse_ok == report.counted_files && report.round_trip_ok == report.counted_files {
+                Ok(())
+            } else {
+                std::process::exit(1);
+            }
         }
         Command::Check { file } => {
             let result = check::check_file(&file)?;

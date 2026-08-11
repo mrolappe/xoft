@@ -1,0 +1,37 @@
+{
+  "total_files": 792,
+  "allowlisted_files": 26,
+  "counted_files": 766,
+  "parse_ok": 766,
+  "round_trip_ok": 766,
+  "parse_pct": 100.0,
+  "round_trip_pct": 100.0,
+  "roots": {
+    "amiga-oberon-31": {
+      "files": 122,
+      "parse_ok": 119,
+      "round_trip_ok": 119,
+      "allowlisted": 3
+    },
+    "oberon-a": {
+      "files": 237,
+      "parse_ok": 218,
+      "round_trip_ok": 218,
+      "allowlisted": 19
+    },
+    "stj": {
+      "files": 306,
+      "parse_ok": 306,
+      "round_trip_ok": 306,
+      "allowlisted": 0
+    },
+    "voc": {
+      "files": 127,
+      "parse_ok": 123,
+      "round_trip_ok": 123,
+      "allowlisted": 4
+    }
+  },
+  "failure_histogram": {},
+  "failures": []
+}

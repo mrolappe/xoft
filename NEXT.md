@@ -1,81 +1,84 @@
 # Next task
 
-**M4.1 — `xoft corpus run` → `reports/corpus-report.json`, honoring the allowlist.** Per
-`docs/plan.md`: parse + round-trip every corpus file, write a deterministic report, and exclude
-`corpus/allowlist.toml` entries (capped at 5% of files / D8) from the pass/fail count. M3 (all of
-M3.1/M3.2/M3.3) is done as of this round.
+**M4.2 — CI: fail on undiffed report change.** Per `docs/plan.md`: `cargo test` + `corpus run` +
+`git diff --exit-code reports/`. M4.1 (`xoft corpus run` + `corpus/allowlist.toml` +
+`reports/corpus-report.json`) is done as of this round (round 32) — D8's exit criterion is met
+(766/792 counted, 100% parse, 100% round-trip, 26 allowlisted at 3.28%, under the 5% cap).
+
+## The scoping question to resolve first — don't guess, ask
+
+**The corpus is not in this repository and cannot be.** `corpus/roots.toml` pins four
+machine-local absolute paths (`/Users/mrolappe/studio/oberon-a-fs-uae-env/...`,
+`.../Nextcloud/retro-comp/...`, `.../atari-retro-dev/...`, `.../git-repos/voc/...`) to archived
+third-party sources deliberately not vendored (license reasons, see `corpus/roots.toml`'s own
+header comment and `docs/plan.md`). A CI runner (GitHub Actions or otherwise) has none of these
+paths — `xoft corpus run` as it exists today would fail outright in CI (`reading <path>: No such
+file or directory` from `manifest::build`'s `WalkDir::new(&root.path)`, since the root itself
+won't exist), not just produce a diff.
+
+`docs/plan.md`'s M4.2 row ("`cargo test` + `corpus run` + `git diff --exit-code reports/`") reads
+as if the runner *has* the corpus. It may be understating the real setup this needs (a corpus
+cache/mirror step, a self-hosted runner with the paths mounted, a subset-corpus fixture checked
+into the repo for CI's purposes while the full corpus stays a local-only "the human runs this
+before pushing" check, or something else not yet decided) — this is exactly the kind of
+ambiguous-scope case `CLAUDE.md` says to stop and ask about rather than build a guess. **Ask the
+user how CI is supposed to get corpus access before writing any workflow file.** Options worth
+presenting: (a) CI only runs `cargo test --workspace` and the report-freshness check is a
+local/pre-push discipline, not automated; (b) a small fixture corpus gets vendored into the repo
+specifically for CI (separate from the real `corpus/roots.toml` machine-local one); (c) CI has
+no access at all and M4.2 is descoped/redefined; (d) something else the user has in mind for
+where this actually runs.
 
 ## What's confirmed (do not re-derive, just verify before coding)
 
-- `docs/plan.md`'s layout section names two files that don't exist yet and this milestone creates
-  both: `corpus/allowlist.toml` (excluded files + one-line reason each, D8, capped at 5% ≈ 40 of
-  792 files) and `reports/corpus-report.json` (the `reports/` directory already exists, empty).
-- Metrics required, per the plan's M4.1 row: parse % (zero `ERROR`/`MISSING`), round-trip % (byte-
-  identical via M2's `serialize::walk`/`reconstruct`, already exercised end-to-end by `xoft
-  transpile`, `crates/xoft-cli/src/transpile.rs`), a failure histogram, and a per-root breakdown
-  (the four root aliases in `corpus/roots.toml`: `oberon-a`, `stj`, `amiga-oberon-31`, `voc`).
-  "Sorted keys, relative paths, no timestamps" (plan.md) — the report must be byte-stable across
-  consecutive runs on an unchanged corpus, that's M4's own exit criterion and M4.2's CI check.
-- `crates/xoft-cli/src/manifest.rs` (`build(roots) -> Manifest`, walks `corpus/roots.toml`'s roots
-  via `walkdir`, already computes `FileFacts` per file and writes `corpus/manifest.json`) is the
-  thing to extend or sit alongside, not duplicate — it already has the root-walking, relative-path,
-  and sorted-output machinery this milestone needs. Read it first (`codegraph_explore` for the
-  `manifest`/`Entry`/`RootSummary` shapes) before deciding whether `corpus run` reuses `build()`'s
-  file list or is a new pass over the same roots.
-- `check_source`/`check_file` (`crates/xoft-cli/src/check.rs`, M3.2) already gives parse-diagnostic
-  results per file; `transpile_file` (`crates/xoft-cli/src/transpile.rs`) already gives the
-  round-trip byte-comparison. `corpus run` is very likely "walk the corpus, call these two per
-  file, aggregate" rather than new parsing/round-trip logic — check before writing anything that
-  even resembles a third implementation of either.
-- The allowlist's *initial contents* are not yet decided in code, only informally identified across
-  M1's rounds 23-25: dual pragma-guarded `MODULE` headers (`Break.mod`, `NoGuru.mod` in
-  `amiga-oberon-31`), Amiga Oberon's conditional-compilation preprocessor files (`Kernel.mod`,
-  `IntuiPointerDemo.mod`, `amiga/Utility.mod`), and a handful of one-off corpus artifacts (stray
-  bytes, malformed preambles) called out in round 25's `oberon-a` retriage — see
-  `docs/progress/m1-grammar.md` rounds 23-25 for the full list with counts. **Don't just port that
-  list blind** — M1's 26 residual grammar failures (766/792, round 26) are a different measurement
-  than what M4.1 will actually find, since M4.1 additionally checks the *round-trip*, not just the
-  parse — a file can parse clean (M1's metric) and still fail byte-identical round-trip (M2's own
-  ad hoc 240-file sample, round 26, found `rt_ok` true even on `ERROR`-containing files, but that
-  was a small sample, not the full corpus). Run the tool first, look at what it actually reports,
-  build the allowlist from real M4 output, not from the M1 backlog.
-- If the real run's allowlist would exceed the 5% cap (~40 files), that's a D8 exit-criterion
-  question worth flagging to the user rather than silently allowlisting past the cap or silently
-  declaring M4 not-done — ask before deciding which way to resolve it.
+- `xoft corpus run` (`crates/xoft-cli/src/corpus_run.rs`, `main.rs`'s `Corpus Run` subcommand)
+  exists, is TDD-tested (`crates/xoft-cli/tests/corpus_run.rs`, 5 tests), and produces a
+  byte-stable `reports/corpus-report.json` when the corpus is reachable — confirmed by running it
+  twice locally and diffing. `git diff --exit-code reports/` itself is a one-line addition once
+  the corpus-access question above is answered; the report generation side is not blocked.
+  Read `docs/progress/m4-corpus-runner.md` for the full derivation.
+- `corpus/allowlist.toml` (26 entries, 3.28%) and `reports/corpus-report.json` are both checked
+  in already. Re-running `corpus run` on an unchanged corpus should reproduce the checked-in
+  report byte-for-byte — that reproducibility *is* what M4.2's CI check verifies, so a good first
+  local sanity step for M4.2 is confirming that (`cargo run -p xoft-cli -- corpus run && git diff
+  --exit-code reports/`) still passes before touching CI config, since corpus content on disk
+  could in principle have drifted since this round.
+- No CI config exists anywhere in this repo yet (`.github/workflows/` doesn't exist) — M4.2 is
+  the first CI setup of any kind for this project, not an addition to an existing pipeline.
 
 ## Definition of done
 
-- `xoft corpus run` subcommand in `xoft-cli` (sibling of `Corpus manifest`, `Check`, `Transpile` in
-  `main.rs`), writes `reports/corpus-report.json`.
-- `corpus/allowlist.toml` created, each entry with a one-line reason, total ≤5% of 792 files.
-- TDD per `CLAUDE.md`: failing test first. Likely needs a small fixture corpus (tempdir-based, like
-  `manifest.rs`'s tests) for the unit-level test, since running against the real out-of-repo corpus
-  isn't reproducible in CI the same way — decide this shape and, if genuinely unclear from how
-  `manifest.rs`'s existing tests already solved the same problem, ask before coding.
-- Confirm the "byte-stable across consecutive runs" exit criterion by literally running it twice
-  and diffing (`git diff --exit-code reports/` is M4.2's own check, but M4.1 should self-verify
-  this before calling itself done).
-- Update `docs/progress/` with a new `m4-corpus-runner.md` (M3's file is
-  `docs/progress/m3-diagnostics-cli.md` — follow its structure) and `PROGRESS.md`'s table row.
-- Usual end-of-round ritual: `PROGRESS.md` round table, `docs/insights.md`/`docs/errors.md`/
-  `docs/checklist.md` only if something genuinely mistake-worthy came up.
+- The corpus-access scoping question above resolved with the user before any workflow file is
+  written.
+- Whatever CI shape is agreed on, wired up and demonstrated working (or explicitly explained why
+  it can't be demonstrated in this environment, e.g. no ability to push and watch Actions run —
+  ask the user how they want to verify it if so).
+- Usual end-of-round ritual: `PROGRESS.md` round table + `docs/progress/` file (new
+  `m4-corpus-runner.md` continuation or a dedicated M4.2 section, match M3's per-file-covers-
+  whole-milestone precedent), `docs/insights.md`/`docs/errors.md`/`docs/checklist.md` only if
+  something genuinely mistake-worthy came up, `cargo test --workspace`.
+- If M4.2 lands cleanly, **M4 is done** — next milestone per `docs/plan.md` is M5 (toy dialect
+  Oberon-X), which `docs/plan.md` line 147 notes is "written from the corpus report, the
+  allowlist and the measured Oberon-X cost" and tagged **Opus** — worth flagging to the user at
+  that point rather than silently starting M5 on whatever model is running this round.
 
 ## State of the tree
 
-- `crates/xoft-core/src/{codec,grammar,serialize,strip_comments,diagnostic,rule}.rs` + `build.rs`:
-  all green, unchanged this round. M1/M2 done (rounds 26/29).
-- `crates/xoft-core/src/diagnostic.rs`: `error_message` table now has two grounded entries —
-  `"assignment"` (round 28) and `"module"` (this round, round 31) — both found by probing real
-  parser output, not guessed. Still deliberately small; add entries only from evidence.
-- `crates/xoft-cli/src/{manifest,check,transpile,main,lib}.rs`: unchanged this round. `xoft check`
-  and `xoft transpile` both work end-to-end (M3.2, round 30).
-- **New this round (M3.3, round 31):** `crates/xoft-cli/tests/fixtures/broken/*.mod` (8 hand-
-  written broken files) + `crates/xoft-cli/tests/broken_fixtures.rs` (one parametrized test,
-  `insta` snapshots over `check_source`'s rendered output plus structural assertions against
-  `CheckResult::diagnostics`) + `crates/xoft-cli/tests/snapshots/*.snap` (8 accepted snapshots).
-  `insta = "1.48.0"` added dev-only to `xoft-cli`. **M3 is fully done** (M3.1 + M3.2 + M3.3).
-- `grammar.js`/`src/scanner.c`: unchanged since round 24, M1 is frozen unless a new corpus gap
-  surfaces (M4.1 running the real corpus at full round-trip scale for the first time might surface
-  one — if so, that's a scoping question for the user per M1's precedent, not an automatic reopen).
-- `cargo test --workspace`: green, 28 tests in `xoft-core` (unchanged) + 9 in `xoft-cli` (8 → 9
-  this round: the one new parametrized `broken_fixtures` test, covering all 8 fixtures).
+- `crates/xoft-core/`: unchanged this round (M1/M2/M3 core untouched). 28 tests, all green.
+- `crates/xoft-cli/src/{check,manifest,main,lib}.rs`: unchanged in shape this round except
+  `main.rs`'s new `Corpus Run` arm and `lib.rs`'s new `pub mod corpus_run;` line.
+- `crates/xoft-cli/src/transpile.rs`: `transpile_file` split into `transpile_source(filename,
+  text) -> TranspileResult` (pure) + a thin `transpile_file(path)` wrapper, so `corpus_run::run`
+  can reuse the parse+round-trip logic on bytes it already read via `manifest::build` without a
+  second file read. Existing `transpile.rs` tests (2, unchanged) covered this refactor for free —
+  same public signature.
+- **New this round (M4.1, round 32):** `crates/xoft-cli/src/corpus_run.rs` (`Allowlist`/
+  `AllowlistEntry`, `FileOutcome`, `CorpusReport`/`RootBreakdown`/`Failure`, pure `aggregate()` +
+  I/O `run()`), `crates/xoft-cli/tests/corpus_run.rs` (5 tests), `corpus/allowlist.toml` (26
+  entries), `reports/corpus-report.json` (checked in, byte-stable). `main.rs` gained `Corpus Run
+  { roots, allowlist, out }`.
+- `cargo test --workspace`: green, 28 tests in `xoft-core` (unchanged) + 14 in `xoft-cli` (9 → 14:
+  the 5 new `corpus_run` tests).
+- `grammar.js`/`src/scanner.c`: unchanged. M1 stays frozen — the one new corpus gap M4.1's full
+  sweep surfaced (`voc/ulm/ulmRandomGenerators.Mod`'s bare-decimal real literal `1.`) was, per
+  user decision this round, allowlisted rather than used to reopen M1.
