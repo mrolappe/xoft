@@ -9,3 +9,8 @@ description = "Core library for xoft: parsing, lossless serialization and dialec
 [dependencies]
 serde = { workspace = true }
 sha2 = "0.10"
+tree-sitter = { workspace = true }
+tree-sitter-language = "0.1"
+
+[build-dependencies]
+cc = "1"

@@ -906,3 +906,32 @@ appeared. When two failures in different corpus roots produce a structurally sim
 (two full declarations/statements present unconditionally, no separator between them), check
 whether they're the same feature in a different dialect's spelling before treating either as a
 one-off.
+
+## Round 26 — 2026-08-11
+
+### Extras still produce real tree nodes — comments are leaves, not invisible
+
+Before writing the M2.2 token-walk serializer, the assumption was that `extras` (whitespace,
+comments) vanish from the tree entirely, so the walk would need explicit comment-detection logic
+to keep them out of "uncovered gap" territory. Parsing `MODULE M; (* a comment *)\nEND M.\n` and
+inspecting the raw tree showed a `comment` node as a normal sibling in `module`'s children,
+alongside `module_header`/`module_footer` — extras are marked `is_extra` internally but still
+appear as ordinary nodes with real byte spans. Consequence: a plain "collect every zero-child
+node as a leaf" walk already includes comments as leaves for free; gaps end up holding only
+actual whitespace, with no special-casing needed. Worth re-confirming empirically (one
+`tree-sitter parse` call) rather than assuming either way before designing a tree-walk.
+
+### Staying inside the codec's mapped-text domain sidesteps an offset-conversion class of bugs
+
+D3's byte↔char codec means the string handed to tree-sitter is not byte-identical to the
+original file for any byte >= 0x80 (one original byte becomes a 2-byte UTF-8 sequence in the
+mapped text), so tree-sitter's `start_byte()`/`end_byte()` are offsets into the *mapped* text,
+not the original bytes. The instinct was to build a byte-offset→original-byte-index table to
+convert every node span back before reconstructing. Unnecessary: as long as every step of the
+walk (slicing, concatenating) stays inside the mapped text's own `&str` domain and the codec's
+`to_bytes()` is only invoked once, at the very end, on the fully-reconstructed mapped-text
+`String`, no conversion table is ever needed — `Document`'s bijection is one char per original
+byte by construction, so char-domain operations on the mapped text are automatically
+original-byte-domain operations. Recognizing which domain a design actually needs to operate in
+avoided writing an offset-mapping module that the checklist's "check what the laziest passing
+implementation would look like" instinct would have flagged as unrequested complexity anyway.
