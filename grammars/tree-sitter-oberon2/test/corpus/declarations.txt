@@ -437,3 +437,32 @@ END Repeated.
   (module_footer
     (kEnd)
     (ident)))
+
+===============================
+AmigaOberon Addressed Variable
+===============================
+
+MODULE Variables;
+  VAR
+    Ciapra[0BFE001H]: SHORTSET;
+END Variables.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (variable_decls
+    (kVar)
+    (variable_decl
+      (addressed_ident
+        (ident_def
+          (ident))
+        (address
+          (integer)))
+      (type
+        (qualident
+          (ident)))))
+  (module_footer
+    (kEnd)
+    (ident)))

@@ -94,3 +94,44 @@ file for a structurally similar existing case (same rule combination) and copy i
 than reconstructing it from `grammar.js` rule definitions alone — the generated node shape
 depends on precedence/hiding choices in the grammar that aren't always obvious from the rule
 text.
+
+## Round 19 — 2026-08-11
+
+### Declared a `conflicts` entry to fix an ambiguity, but the rules hadn't moved yet — wasted a cycle on a no-op
+
+While diagnosing the `designator`/`actual_params` type-guard ambiguity (see `docs/insights.md`
+round 19), the first attempt was `conflicts: $ => [[$.selector, $.actual_params]]` with the two
+rules left in their *original* positions (`selector` inside `designator`'s `repeat`,
+`actual_params` bolted onto `factor`/`procedure_call` afterward). `tree-sitter generate`
+reported the declaration "unnecessary" and the minimal repro still failed identically —
+because in that shape, the two rules are never actually offered as alternatives at the same
+parser state; there was nothing for GLR to fork between. The declaration looked plausible
+(both rules' first token is `(`) but conflict analysis operates on the automaton's actual
+states, not on "these two things start with the same character."
+
+**Mitigation:** when `tree-sitter generate` calls a declared conflict "unnecessary," believe it
+immediately rather than re-testing the same declaration a second time hoping the warning was
+stale — it means the automaton genuinely has no fork there, so the fix has to change what
+states exist (here: moving `actual_params` into the same `repeat` as `selector`, so they're
+truly siblings at one choice point), not add a bigger or differently-worded conflict list. This
+was working correctly the first time it was tried (see the round-19 log above) — the mistake
+was doubting the "unnecessary" warning enough to spend a second cycle confirming it rather than
+moving straight to a grammar-shape change.
+
+### Edit tool `old_string` silently failed to match text containing a literal NBSP character
+
+Twice this round, an `Edit` call with `old_string` typed to *look* like the target line (e.g.
+`extras: $ => [$.comment, $.pragma, $.bracket_pragma, /[\s ]/],`) failed with "String to
+replace not found," even immediately after a successful edit had written that exact line. The
+line actually contained a literal U+00A0 (non-breaking space) character inside the regex
+(intentionally, to match the corpus's NBSP-as-whitespace bytes) — indistinguishable from a
+plain space when read back visually, but a byte-exact mismatch against a hand-typed ASCII space
+in the tool call.
+
+**Mitigation:** when a byte a rule needs to match is a non-obvious/invisible Unicode character
+(NBSP, zero-width chars, smart quotes), don't retype it by hand in a subsequent `Edit` call —
+either use a `\uXXXX` escape in the replacement text (unambiguous, greppable) or drive the
+substitution through a small Python/Bash script that references the character by codepoint,
+as was eventually done here (`python3` one-liner replacing the exact old string read back from
+the file). Confirm the result by reading the byte content back (`od -c` or `repr()` in Python),
+not by eyeballing the file.

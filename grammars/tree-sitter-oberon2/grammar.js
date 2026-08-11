@@ -18,8 +18,16 @@ const
   identifier = seq(letter, repeat(choice(letter, digit))),
 
 
-  // scale_factor = "E" ["+" | "-"] digit {digit}
-  scale_factor = seq('E', choice('+', '-'), digit, repeat(digit)),
+  // scale_factor = ("E" | "D") ["+" | "-"] digit {digit}
+  // docs/language-baseline.md's ScaleFactor requires a sign and >=1 exponent digit whenever
+  // a scale factor appears at all, but corpus usage (oberon-a, amiga-oberon-31) diverges in
+  // two ways confirmed via grep: the sign is often omitted even with exponent digits present
+  // (`9.22337177E18`), and AmigaOberon's "D" (LONGREAL literal) marker is consistently used
+  // bare, with no sign or digits at all (`3.141592653589793D`). Both the sign and the
+  // digit{digit} tail are made optional here to cover both without over-narrowing.
+  scale_factor = seq(
+    choice('E', 'D'), optional(seq(optional(choice('+', '-')), digit, repeat(digit)))
+  ),
 
   // real = digit {digit} "." {digit} [scale_factor]
   // The report allows zero digits after the "." (bare "2."), but no real-world corpus code
@@ -37,13 +45,19 @@ module.exports = grammar({
 
   externals: $ => [$.comment, $.pragma, $.bracket_pragma, $.assembler_body],
 
-  extras: $ => [$.comment, $.pragma, $.bracket_pragma, /\s/],
+  // \s alone doesn't cover U+00A0 (non-breaking space): confirmed via corpus grep, several
+  // AmigaOberon files (BasicTypes.mod, Lists.mod, FArrays.mod) use a literal NBSP byte as
+  // inter-token whitespace after a procedure heading's ";", not just inside comment prose.
+  extras: $ => [$.comment, $.pragma, $.bracket_pragma, /[\s\u00a0]/],
 
   word: $ => $.ident,
 
   // procedure_decl and definition_proc_decl share the "procedure_heading ';'" prefix;
   // GLR resolves which one matched by whether a procedure_body actually follows.
-  conflicts: $ => [[$.procedure_decl, $.definition_proc_decl]],
+  conflicts: $ => [
+    [$.procedure_decl, $.definition_proc_decl],
+    [$.selector, $.actual_params]
+  ],
 
   rules: {
 
@@ -295,9 +309,21 @@ module.exports = grammar({
     ),
 
     // variable_decl = ident_list ":" type
+    // AmigaOberon dialect extension (not in normative EBNF, confirmed via corpus, always
+    // exactly one identifier, never a comma list): a variable's identifier may carry an
+    // absolute hardware-address annotation "[" integer "]" mapping it onto a fixed memory
+    // location (custom-chip register), e.g. `Ciapra[0BFE001H]: SHORTSET;`. Modeled as a
+    // sibling addressed_ident alternative rather than folded into the shared ident_list,
+    // which record fields and formal parameters also use and never carry this.
     variable_decl: $ => seq(
-      $.ident_list, ':', $.type
+      choice($.ident_list, $.addressed_ident), ':', $.type
     ),
+
+    // addressed_ident = ident_def address
+    addressed_ident: $ => seq($.ident_def, $.address),
+
+    // address = "[" integer "]"
+    address: $ => seq('[', $.integer, ']'),
 
     // type = qualident | struct_type
     type: $ => choice(
@@ -439,7 +465,9 @@ module.exports = grammar({
     // factor = number | string | "NIL" | "TRUE" | "FALSE" |
     //          set | designator [actual_params] | "(" expression ")" | "~" factor
     // STJ-Oberon also accepts "NOT" as a textual synonym for "~" (same corpus
-    // evidence as "AND" above, often used together).
+    // evidence as "AND" above, often used together). designator already folds
+    // actual_params into its own repeat (see below), so factor no longer needs a
+    // separate trailing slot for it.
     factor: $ => choice(
       $.number,
       $.string,
@@ -448,16 +476,28 @@ module.exports = grammar({
       $.kFalse,
       $.set,
       $.typed_set,
-      seq($.designator, optional($.actual_params)),
+      $.designator,
       seq('(', $.expression, ')'),
       seq('~', $.factor),
       seq($.kNot, $.factor)
     ),
 
     // designator = qualident {selector}
+    // The report keeps a designator's trailing call ("(" [ExpList] ")", ActualParameters)
+    // separate from selector's type guard ("(" qualident ")"), bolted on only once at the
+    // very end by factor/procedure_call. But a single bare-identifier argument is exactly
+    // the same token sequence either way, and real Oberon-2 compilers resolve which one it
+    // is via the symbol table (is the name a type?) — information this syntax-only grammar
+    // doesn't have. Corpus evidence (AmigaOberon's COMPLEX.mod, VECTOR.mod, SecureDos.mod)
+    // needs guards and calls to freely interleave and chain, e.g. `n(COMPLEX).Norm()`
+    // (guard, then field, then call) — so actual_params joins selector in one repeating
+    // choice here instead of a single trailing slot that can't be followed by more
+    // selectors. See the `conflicts` entry pairing them: the ambiguous case (parenthesized
+    // single qualident) is genuinely undecidable without semantic info, so GLR explores
+    // both and keeps whichever lets the rest of the input parse.
     designator: $ => prec.left(seq(
       $.qualident,
-      repeat($.selector)
+      repeat(choice($.selector, $.actual_params))
     )),
 
     // selector = "." ident | "[" expression_list "]" | "^" | "(" qualident ")"
@@ -526,9 +566,8 @@ module.exports = grammar({
     ),
 
     // procedure_call = designator [actual_params]
-    procedure_call: $ => seq(
-      $.designator, optional($.actual_params)
-    ),
+    // actual_params already folds into designator's own repeat (see designator).
+    procedure_call: $ => $.designator,
 
     // statement_seq = statement {";" statement}
     // Statement is itself optional in the EBNF ([...]), so every element of

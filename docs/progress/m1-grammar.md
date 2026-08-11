@@ -835,3 +835,106 @@ M1 is still below its ≥95% exit criterion (69.95%). `amiga-oberon-31`'s remain
 `VAR` section — a square-bracket absolute hardware-address annotation on a variable
 declaration, structurally new (no existing `var_decl` grammar slot for it) but not implemented
 this round.
+
+## M1.4 continued — hardware-address vars, D/E scale-factor bug, designator/actual_params ambiguity (round 19, 2026-08-11)
+
+Started from round 18's known lead (`Sparks.mod`'s `Ciapra[0BFE001H]: SHORTSET;`), fixed it,
+then kept sampling `amiga-oberon-31`'s remaining non-`STRUCT` failures. Two of the three fixes
+this round turned out to be cross-dialect, one of them (fix 3) the single largest-impact fix to
+date.
+
+1. **Absolute hardware-address variable annotation**, `ident[hexInteger]: type` in a `VAR`
+   section, e.g. `Ciapra[0BFE001H]: SHORTSET;` (AmigaOberon custom-chip register mapping).
+   Confirmed via corpus grep: always exactly one identifier, never a comma list (4 occurrences,
+   `Sparks.mod`/`Sparks2.mod`). Rather than folding into the shared `ident_list` (used by
+   `field_list`/`fp_section` too, which never carry this), added a sibling
+   `addressed_ident: $ => seq($.ident_def, $.address)` alternative inside `variable_decl`
+   (`choice($.ident_list, $.addressed_ident)`), with `address: $ => seq('[', $.integer, ']')`.
+   New test in `declarations.txt`. No conflicts — matches round 18's `param_offset`/`reg_spec`
+   precedent of duplicating `ident_list`'s shape rather than editing the shared rule.
+
+2. **Scale-factor lexer bug** (`D`/`E` real-number suffix), found while isolating fix 1's file
+   further: `LongRealConversions.mod`'s `trans.Pow(n,0.1D)` failed to parse. `docs/
+   language-baseline.md`'s `ScaleFactor = ("E"|"D") ["+"|"-"] digit {digit}` was only half
+   implemented — the grammar had `E` only (no `D`), and required a mandatory sign. Corpus grep
+   across all four roots found real usage diverges from the baseline's own EBNF in two ways:
+   unsigned exponents with digits present (`9.22337177E18`, oberon-a), and AmigaOberon's `D`
+   (LONGREAL literal) marker used consistently *bare*, no sign or digits at all
+   (`3.141592653589793D`, both `amiga-oberon-31` and `oberon-a`). Fix: `scale_factor` gained
+   `D` as a second choice alongside `E`, and made both the sign and the `digit {digit}` tail
+   optional (`seq(choice('E','D'), optional(seq(optional(choice('+','-')), digit,
+   repeat(digit))))`). Two new tests in a new `numbers.txt` corpus file (no prior file covered
+   bare `real`/`scale_factor` literals directly).
+   **Impact:** 70.20% → 73.48% (556 → 582), **+26 files** — cross-dialect: `voc` 41→26 (-15),
+   `stj` 57→48 (-9), `amiga-oberon-31` 71→69 (-2). Confirms the baseline EBNF's own literal
+   shape can still be wrong against real usage, same lesson as round 18's real/range fix.
+
+3. **`designator`/`actual_params` ambiguity** — the round's deepest fix. `COMPLEX.mod`,
+   `VECTOR.mod`, `SecureDos.mod`, `STRING.mod` all failed on a type-guard immediately followed
+   by a selector or another call, e.g. `n(COMPLEX).Norm()` / `np(LockNode).lock`. Root cause:
+   the report's own grammar has `designator = qualident {selector}` (`selector` includes the
+   type-guard form `"(" qualident ")"`) and separately `factor = ... designator
+   [ActualParameters] | ...` (`ActualParameters = "(" [ExpList] ")"`), bolted onto the *end* of
+   designator only, once. A parenthesized single bare identifier is exactly the same token
+   sequence for both — the real Oberon-2 grammar is genuinely ambiguous here, and real
+   compilers resolve it via the symbol table (is the name a type?), which this syntax-only
+   grammar has no access to. tree-sitter's default LALR resolution deterministically always
+   picked `actual_params` (never `selector`), so once `(COMPLEX)` was consumed as a "call",
+   nothing in the grammar allowed the following `.Norm()` to attach anywhere — hence `ERROR`.
+   Confirmed via a minimal repro (`n(T).val` inside a plain procedure body, no receiver needed)
+   that this was unconditional, not context-sensitive, and that adding `conflicts:
+   [[$.selector, $.actual_params]]` alone (their old, separate homes — `selector` inside
+   `designator`'s own `repeat`, `actual_params` bolted on afterward in `factor`) did nothing;
+   tree-sitter reported it "unnecessary" both times (no automaton-level fork was ever being
+   built between them in that shape).
+   Fix: moved `actual_params` **into** `designator`'s own repeat, as a `choice` sibling of
+   `selector` (`repeat(choice($.selector, $.actual_params))`), removed the now-redundant
+   trailing `optional($.actual_params)` from `factor` and `procedure_call` (both now just use
+   `$.designator` directly). This lets guards, field accesses and calls interleave and chain
+   arbitrarily, matching corpus reality; kept `conflicts: [[$.selector, $.actual_params]]`
+   declared (still reported "unnecessary" by `tree-sitter generate`, meaning no GLR fork is
+   actually needed even now — the ambiguous case apparently never reaches a genuine automaton
+   conflict, some other tree-sitter-internal resolution already picks a workable parse; kept
+   the declaration anyway as in-code documentation of the known ambiguity). Reshapes the AST:
+   `actual_params` is now a child of `designator` (alongside `selector`) instead of a sibling
+   of it under `factor`/`procedure_call` — updated the 5 existing call-site assertions across
+   `statements.txt` via `tree-sitter test --update`, read back to confirm pure reshaping (same
+   content, no `ERROR`/`MISSING`), no other tests affected.
+   **Impact:** 73.48% → 77.90% (582 → 617), **+35 files**, the single largest one-fix gain to
+   date — cross-dialect: `voc` 26→10 (-16), `oberon-a` 67→60 (-7), `stj` 48→40 (-8),
+   `amiga-oberon-31` 69→65 (-4).
+
+4. **NBSP (U+00A0) not treated as whitespace.** Found while re-sampling `amiga-oberon-31`'s
+   remaining non-`STRUCT` failures after fix 3: `BasicTypes.mod` had a literal Latin-1 `0xA0`
+   byte used as inter-token whitespace right after a procedure heading's `;` (before `BEGIN`).
+   `extras`' plain `/\s/` regex doesn't match it. Grepped all four roots for the raw byte
+   (`LC_ALL=C grep $'\xa0'`): 10 files in `amiga-oberon-31`, 2 in `oberon-a` — mostly inside
+   comment prose (German text, already opaque to the grammar via the external scanner) but a
+   few, like `BasicTypes.mod`, `Lists.mod`, `FArrays.mod`, use it as bare inter-token
+   whitespace. Fix: `extras`' whitespace regex widened to `/[\s ]/`.
+   **Impact:** 77.90% → 78.16% (617 → 619), +2 files (`BasicTypes.mod` and one `oberon-a` file).
+
+**Known remaining issue, not fixed this round:** `Lists.mod` and `FArrays.mod` still fail after
+fix 4, at the same NBSP-adjacent procedure heading — but only when the NBSP is *followed by a
+comment* before `BEGIN` (isolated via a minimal repro: NBSP alone before `BEGIN` parses fine;
+comment alone before `BEGIN` parses fine; NBSP **and** comment together, even on a plain
+receiver-less `PROCEDURE Add; <NBSP>\n(* comment *)\nBEGIN...END Add;`, fails). This reproduces
+regardless of receiver/assignable-mark. Suspected cause: interaction between the `extras`-level
+ambiguity (two different whitespace-token shapes, regex vs. external-scanner comment) and the
+pre-existing `procedure_decl`/`definition_proc_decl` GLR fork (round 12) — extra lexer states
+introduced by the NBSP token appear to tip that fork's resolution the wrong way when a comment
+immediately follows. Not chased further this round (only 2 files affected, and the mechanism
+looked like a deeper tree-sitter GLR/extras interaction rather than a simple grammar-shape
+fix) — a lead for whoever samples `amiga-oberon-31` next, worth minimizing further (does a
+*plain* extra `\s\s` double-space + comment combo also trigger it, ruling out NBSP specifically
+and pointing at "any two different extras token kinds back to back"?) before attempting a fix.
+
+`tree-sitter test`: 65/65 green (63 before this round + 2 new: 1 `addressed_ident` case in
+`declarations.txt`, plus a new `numbers.txt` file with 2 cases for the scale-factor fix; the 5
+pre-existing `actual_params` assertions in `statements.txt` were reshaped, not added).
+
+M1 is still below its ≥95% exit criterion (78.16%). Post-round-19 failure counts by root:
+`amiga-oberon-31` 64 (4 non-`STRUCT`: `Break.mod`, `FArrays.mod`, `Lists.mod`,
+`linkedlists.mod`), `oberon-a` 59, `stj` 40, `voc` 10. `voc` dropped the most this round (41→10)
+and is now the smallest-by-far root remaining — worth a dedicated fresh sampling pass next,
+alongside finishing `amiga-oberon-31`'s last 4 non-`STRUCT` files.

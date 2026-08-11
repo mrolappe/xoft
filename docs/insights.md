@@ -586,3 +586,54 @@ cut it down to the 7 genuine source-file hits. Worth remembering as the inverse 
 "grep binaries on purpose for a keyword table" trick: when the corpus root mixes source and
 compiled artifacts (common in these retro-Oberon roots), an unscoped grep can't tell the
 difference and will over-count.
+
+### A dialect's own EBNF documentation can still be wrong against real usage — grep the corpus even when the baseline "already covers it"
+
+Round 19's scale-factor bug looked, at first glance, like the grammar was simply missing `D`
+(only `E` was implemented) — an easy add-the-missing-choice-arm fix. But `docs/
+language-baseline.md`'s own `ScaleFactor = ("E"|"D") ["+"|"-"] digit {digit}` requires a sign
+and at least one exponent digit whenever a scale factor appears at all, and real corpus usage
+violates *that* too: `9.22337177E18` (oberon-a) has no sign, and AmigaOberon's `D`
+(LONGREAL-literal marker, `3.141592653589793D`) is used consistently bare, no sign or digits
+at all. Trusting the baseline document's EBNF as sufficient — rather than re-grepping actual
+usage even for a construct the baseline already names — would have produced a fix that still
+left both patterns as `ERROR`. Same lesson as round 18's real/range fix (grep first), but this
+time the wrong assumption was "the baseline documents it correctly" rather than "the grammar
+implements the baseline correctly" — two different places the same trust can misfire.
+
+### A genuinely ambiguous language construct (no lookahead/backtracking can fix it) may still have a workable syntax-only resolution — check where tree-sitter's default LALR choice lands before reaching for GLR
+
+Oberon-2's `designator [ActualParameters]` vs. `selector`'s `"(" qualident ")"` type guard are
+textually identical for a parenthesized single bare identifier — real compilers resolve this
+via the symbol table (is the name a type?), which a syntax-only tree-sitter grammar doesn't
+have. Round 19 initially assumed this needed GLR (`conflicts: [[$.selector,
+$.actual_params]]`), but tree-sitter reported the declaration "unnecessary" both times tried
+(before and after restructuring) — no automaton-level fork was ever being built, meaning
+tree-sitter's default resolution was already deterministic, just consistently wrong for the
+type-guard-then-selector case (`n(COMPLEX).Norm()` always parsed the `(COMPLEX)` as a call,
+leaving `.Norm()` nowhere to attach → `ERROR`). The actual fix wasn't forcing GLR at all — it
+was noticing that `actual_params` lived in the wrong *place* in the grammar (bolted onto
+`factor`/`procedure_call` as a single trailing slot after designator, instead of inside
+designator's own `repeat` alongside `selector`) so nothing could ever follow a call. Moving it
+into the same repeat let guards/fields/calls interleave and chain freely, at the cost of
+occasionally mislabeling which one a lone parenthesized identifier "really" is — acceptable
+since M1's exit criterion is parse success, not semantic-correct node labeling. Cross-dialect
+impact confirmed the fix was structural, not AmigaOberon-specific (`voc` -16, `oberon-a` -7,
+`stj` -8, `amiga-oberon-31` -4) — the single largest one-fix gain of the project so far.
+Lesson: when a construct looks like a textbook GLR case, try the `conflicts` declaration
+*first* and trust "unnecessary" if tree-sitter says so — chasing GLR further when the generator
+insists there's no fork wastes effort the grammar-shape question would have resolved faster.
+
+### `extras` token-kind mixing can destabilize an unrelated, pre-existing GLR fork — not chased to a fix
+
+Round 19 found (but didn't fix) a case where a bare NBSP (U+00A0) extras token followed by a
+comment extras token, sitting between a procedure heading's `;` and its `BEGIN`, tips the
+`procedure_decl`/`definition_proc_decl` GLR fork (round 12) toward the wrong (bodiless) branch
+— even for a plain receiver-less procedure with no `*`/sysflag/anything else unusual. Isolated
+via a minimal repro: NBSP alone before `BEGIN` parses fine; a comment alone before `BEGIN`
+parses fine; the *combination* fails. This smells like a tree-sitter GLR-internal interaction
+(more lexer states from the second extras-token kind altering which fork the parser commits to
+first) rather than anything expressible as a grammar-shape fix. Left as a documented lead
+(`Lists.mod`, `FArrays.mod`) rather than chased — worth minimizing further before the next
+attempt (does *any* two-different-extras-kinds-back-to-back combination trigger it, not just
+NBSP+comment specifically?).

@@ -1,0 +1,57 @@
+================================
+Real With Unsigned E Scale Factor
+================================
+
+MODULE M;
+  CONST
+    x = 9.22337177E18;
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (const_decls
+    (kConst)
+    (const_decl
+      (ident_def
+        (ident))
+      (const_expression
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (number))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=====================================
+Real With Bare D Double-Precision Mark
+=====================================
+
+MODULE M;
+  CONST
+    pi = 3.141592653589793D;
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (const_decls
+    (kConst)
+    (const_decl
+      (ident_def
+        (ident))
+      (const_expression
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (number))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
