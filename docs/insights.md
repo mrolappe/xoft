@@ -935,3 +935,20 @@ byte by construction, so char-domain operations on the mapped text are automatic
 original-byte-domain operations. Recognizing which domain a design actually needs to operate in
 avoided writing an offset-mapping module that the checklist's "check what the laziest passing
 implementation would look like" instinct would have flagged as unrequested complexity anyway.
+
+### A missing statement separator becomes an `ERROR` node, not a `MISSING ";"` — and the CLI's default tree view hides real `MISSING` nodes
+
+Two surprises from probing round 28's `Diagnostic` walk against the real parser before writing
+tests. First: intuition says "missing `;`" should surface as a `MISSING ";"` node, the same shape
+as a missing closing bracket. It doesn't — GLR error recovery instead lets the next statement's
+value misparse as part of the current one, producing an `ERROR` node whose immediate parent is
+`"assignment"`. A genuinely missing token (unbalanced `(`, no `)`) *does* produce a real
+zero-width `MISSING ")"` node. Which shape you get depends on how the grammar's own recovery
+happens to continue, not on any general rule — don't assume one broken-source category always
+manifests the same way; probe each one. Second, and more procedurally important: `tree-sitter
+parse`'s default S-expression output doesn't render `MISSING` nodes inline in the tree at all —
+they only show up in the CLI's one-line trailing error summary (`(MISSING ")" [3, 13] - [3, 13])`
+after the `Parse:` timing line). Reading only the pretty-printed tree would have concluded there
+was no `MISSING` node in that case. `Node::is_missing()` via the Rust API sees it correctly
+regardless — when checking whether a construct produces a `MISSING` node, verify through a small
+Rust probe (`node.is_missing()`), not by eyeballing `tree-sitter parse`'s default tree dump.
