@@ -7,5 +7,6 @@ pub mod codec;
 pub mod corpus;
 pub mod diagnostic;
 pub mod grammar;
+pub mod rule;
 pub mod serialize;
 pub mod strip_comments;

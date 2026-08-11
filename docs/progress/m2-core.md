@@ -84,7 +84,30 @@ Tested in `crates/xoft-core/tests/strip_comments.rs`, all written before the imp
   case above; without the space substitution this test fails (`THENy` lexes as one identifier,
   `has_error()` on re-parse).
 
-## M2.4 — Rule registry (empty in Phase 1) — not started
+## M2.4 — Rule registry (empty in Phase 1) ✅ (round 29, 2026-08-11)
+
+`crates/xoft-core/src/rule.rs`. `Rule` is a trait with one method,
+`check(&self, tree: &Tree, text: &str) -> Vec<Diagnostic>`; `RuleRegistry` holds
+`Vec<Box<dyn Rule>>`, `register` pushes one, `run` flat-maps `check` over all of them into a
+single `Vec<Diagnostic>`. Empty by construction — Phase 1 registers nothing; M5 (Oberon-X) is
+what actually populates it. Asked the user whether `check` needs `text` alongside `tree`
+(`docs/plan.md`'s "query-driven traversal" line doesn't say); confirmed yes — a node only carries
+byte spans, and a rule that wants to inspect or compare the actual source text (an identifier's
+spelling, a literal's value) would otherwise need the caller to re-slice for it, plus adding the
+parameter later would be a breaking change to every future rule.
+
+"Query-driven traversal" (the plan's own phrase) isn't implemented yet — there's no real rule to
+drive with a `tree_sitter::Query` until M5 defines one, so the trait shape doesn't presuppose it;
+a rule is free to use `Query`/`QueryCursor` or a hand-rolled walk internally, `check`'s signature
+doesn't care.
+
+Tested in `crates/xoft-core/tests/rule_registry.rs`, written before the implementation (TDD):
+
+- `empty_registry_runs_zero_rules` — the Phase-1 shape itself: nothing registered, `run` returns
+  `[]`.
+- `a_registered_rule_is_actually_run` — a trivial `AlwaysFlagsRoot` rule that unconditionally
+  returns one `Diagnostic` proves the wiring (register → run → collect) actually invokes `check`
+  and returns what it produced, not just that the types compile.
 
 **Exit criterion (byte-identical round-trip on 100% of non-allowlisted corpus)**: not yet
 measured at full-corpus scale — that requires M4's corpus runner (`xoft corpus run`), which
