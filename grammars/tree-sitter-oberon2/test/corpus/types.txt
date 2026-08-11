@@ -146,6 +146,55 @@ END Types.
     (kEnd)
     (ident)))
 
+===========================================
+AmigaOberon Fixed-Length Array Formal Param
+===========================================
+
+MODULE Types;
+  PROCEDURE DuplicateOpenArray * (VAR from, to: ARRAY 100000H OF SYSTEM.ADDRESS);
+  BEGIN
+  END DuplicateOpenArray;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (kVar)
+            (ident)
+            (ident)
+            (formal_type
+              (kArray)
+              (length
+                (const_expression
+                  (expression
+                    (simple_expression
+                      (term
+                        (factor
+                          (number
+                            (integer))))))))
+              (kOf)
+              (qualident
+                (ident)
+                (ident))))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
 ===========================
 Procedure Type As Field
 ===========================

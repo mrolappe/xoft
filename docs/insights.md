@@ -842,3 +842,34 @@ dialect keywords found together and superficially similar (same grep, same corpu
 "pointer" semantics) can still have unrelated grammar shapes — verify each one's actual token
 sequence against real source individually, don't extrapolate the second from the first's
 already-confirmed shape.
+
+## Round 24 — 2026-08-11
+
+### A single whole-file `ERROR` span can hide more than one independent, unrelated defect
+
+Round 23 left 5 `amiga-oberon-31` files undiagnosed, found while re-tallying that round's
+`STRUCT`/`UNTRACED`/`BPOINTER` fix. It would have been easy to assume all 5 shared one cause —
+they surfaced together, in the same root, right after a round whose theme was pointer/struct
+dialect extensions. They didn't: 4 failed because `module`'s declaration/procedure structure
+couldn't repeat a `(CONST|TYPE|VAR)*` block after a `PROCEDURE*` block had already started; the
+5th (`GarbageCollector.mod`) failed for *that* reason too, but even after fixing it, still had a
+second, entirely unrelated defect (a fixed-length `ARRAY` used as a formal parameter type,
+appearing exactly once in the whole corpus). A single `tree-sitter parse` run showing one
+`ERROR [0,0]-[N,0]` span doesn't mean one root cause — GLR error recovery folds everything after
+the first real failure into one node, so a file can still have a second bug hiding behind the
+first. Lesson: after fixing what looks like the cause of a whole-file `ERROR`, re-parse before
+declaring the file done — don't assume the fix was complete just because it explains why the
+`ERROR` node started where it did.
+
+### A one-shot "declarations, then procedures" grammar shape is a narrower reading of the EBNF than the corpus needs
+
+The baseline EBNF's `DeclarationSequence` (and this grammar's `module` rule) has
+`[CONST...] [TYPE...] [VAR...] {ProcedureDeclaration}` — read literally, one declarations block
+followed by one procedures block. Round 15 already found the *inner* three sections need to
+repeat (`CONST`/`TYPE`/`VAR` interleaved, not one of each) and fixed that. This round found the
+*outer* structure needs the same treatment: the whole `(CONST|TYPE|VAR)*` group and the
+`PROCEDURE*` group can themselves interleave, repeatedly. Both fixes were the same shape of
+mistake — reading the EBNF's grouping as an upper bound on repetition instead of confirming
+against the corpus — worth checking any other still-single-instance EBNF group (this grammar has
+already been burned by this twice now) before assuming it's actually singular in the dialects
+this project targets.

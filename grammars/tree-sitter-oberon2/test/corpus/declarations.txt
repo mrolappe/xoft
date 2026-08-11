@@ -502,6 +502,67 @@ END Repeated.
     (kEnd)
     (ident)))
 
+===================================================
+AmigaOberon Decl Section After Procedure Declaration
+===================================================
+
+MODULE Repeated;
+  PROCEDURE Noop * (x: LONGINT): LONGINT;
+  BEGIN
+    RETURN x
+  END Noop;
+
+  TYPE
+    t = INTEGER;
+END Repeated.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (return_statement
+              (kReturn)
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (designator
+                        (qualident
+                          (ident))))))))))
+        (kEnd))
+      (ident)))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (qualident
+          (ident)))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
 ===============================
 AmigaOberon Addressed Variable
 ===============================

@@ -1371,3 +1371,53 @@ pragma-guarded `MODULE` headers stay scoped out of M1 (Phase 2), and the `\"`/`"
 conflict is to be made dialect/root-specific rather than picking one reading — not yet
 implemented, `\"` needs an approach (external scanner or grammar variant) before coding, see
 `NEXT.md`.
+
+## M1.4 continued — declaration/procedure interleaving + fixed-length array formal param ✅ (round 24, 2026-08-11)
+
+M1's exit criterion was already met (95.96%) at the start of this round; user chose "keep closing
+gaps" over declaring M1 done, and picked the round-23 lead: the 5 newly-visible, undiagnosed
+`amiga-oberon-31` whole-file-`ERROR` failures (`Interfaces/Commodities.mod`, `Interfaces/
+Rexx.mod`, `Interfaces/Utility.mod`, `Module/Concurrency.mod`, `Module/GarbageCollector.mod`).
+
+Diagnosed per the checklist's round-21 lesson — didn't assume the round-23 theme
+(`STRUCT`/`UNTRACED`/`BPOINTER`) was the cause just because it was the most recent grammar
+change, and didn't trust the top `ERROR` span's start position as the failure site. In
+`Rexx.mod`, the outermost `ERROR [157,0]-[495,0]` starts right where a `TYPE` section follows a
+`PROCEDURE` declaration (`END ActionArg;` at line 155, `TYPE` at line 158) — but that same
+`STRUCT`/`UNTRACED` shape already parses correctly *earlier* in the same file (lines 25, 64, 77),
+which is what ruled out round 23's theme as the cause and pointed at the module-level
+declaration structure instead.
+
+**Root cause 1 — `module`'s declaration/procedure split was one-shot, not repeatable.** The
+grammar had `repeat(choice(const_decls, type_decls, variable_decls))` followed by a *separate*
+`repeat($.procedure_decls)` — matching the normative EBNF's "declarations, then procedures,
+once" shape. But this dialect's corpus interleaves them repeatedly: `TYPE...CONST...PROCEDURE
+PROCEDURE PROCEDURE...TYPE...CONST...PROCEDURE...` (confirmed identically across all 5 files via
+a marker grep). Fixed by merging both repeats into one: `repeat(choice(const_decls, type_decls,
+variable_decls, procedure_decls))`, letting any of the four recur in any order — a strict
+superset of the old shape, so no existing corpus case could regress. Fixed 4 of the 5 files
+outright.
+
+**Root cause 2 — `formal_type`'s `ARRAY OF` shorthand had no room for a length.** The 5th file
+(`GarbageCollector.mod`) had a second, unrelated defect after fix 1: `DuplicateOpenArray(VAR
+from,to: ARRAY 100000H OF SYSTEM.ADDRESS; ...)` — a *fixed-length* array as a by-reference
+formal parameter type, where `formal_type` only ever allowed the open-array shorthand (`{"ARRAY"
+"OF"}`, no length, matching the corpus's normal `ARRAY OF Type` open-array parameters). Corpus
+grep found exactly one occurrence of this shape corpus-wide. Fixed by widening the repeated
+`ARRAY` prefix to `seq($.kArray, optional($.length), $.kOf)`, reusing the existing `length` rule
+`array_type` already has.
+
+Both fixes are dialect-neutral grammar widenings (not gated to `amiga-oberon-31`), confirmed via
+2 new corpus-copied test cases (`declarations.txt` "AmigaOberon Decl Section After Procedure
+Declaration", `types.txt` "AmigaOberon Fixed-Length Array Formal Param"), both read back after
+`--update` per the checklist rule.
+
+95.96% → 96.72% (760 → 766/792), +6 files. Per-root: `stj` 0 (unchanged), `amiga-oberon-31` 8 → 3
+(now exactly the 3 still-deferred dual pragma-guarded `MODULE` header files — `Break.mod`,
+`NoGuru.mod`, `OberonLib.mod` — this round's 5-file lead is fully resolved), `oberon-a` 20 → 19
+(one previously-failing file fixed as a side effect of the dialect-neutral interleaving/
+formal-param widenings — not yet re-triaged against round 21/22's category breakdown, see
+`NEXT.md`; the current full 19-file list confirms the "8 non-Oberon stub files" and
+`OberonLib.mod`/`ErrorMessages.mod`/`OBumpRevMsg.mod` categories are unchanged, so the fixed
+file was one of the 2 trailing-NUL-byte files or the 7 untriaged one-offs — not yet
+distinguished), `voc` 4 (unchanged, all deferred).

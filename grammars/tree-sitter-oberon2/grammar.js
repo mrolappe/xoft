@@ -83,8 +83,13 @@ module.exports = grammar({
       seq(
         $.module_header,
         optional($.import_list),
-        repeat(choice($.const_decls, $.type_decls, $.variable_decls)),
-        repeat($.procedure_decls),
+        // AmigaOberon dialect extension (round 24, corpus-confirmed in Interfaces/Rexx.mod,
+        // Interfaces/Commodities.mod, Interfaces/Utility.mod, Module/Concurrency.mod,
+        // Module/GarbageCollector.mod): CONST/TYPE/VAR sections and PROCEDURE declarations
+        // can interleave repeatedly at module level (e.g. TYPE...CONST...PROCEDURE
+        // PROCEDURE...TYPE...CONST...PROCEDURE...), not just one declarations block
+        // followed by one procedures block as the normative EBNF has it.
+        repeat(choice($.const_decls, $.type_decls, $.variable_decls, $.procedure_decls)),
         // AmigaOberon dialect extension (not in normative EBNF, confirmed via corpus): a
         // module-level "CLOSE" section after "BEGIN", holding a finalizer statement sequence
         // run on module unload.
@@ -351,13 +356,16 @@ module.exports = grammar({
     // variable-length argument list.
     reg_spec: $ => seq('[', $.integer, ']', optional('..')),
 
-    // formal_type = {"ARRAY" "OF"} (qualident | procedure_type)
+    // formal_type = {"ARRAY" [length] "OF"} (qualident | procedure_type)
     // The report's FPSection uses full Type (Qualident | ARRAY OF Type | RECORD... |
     // POINTER TO Type | PROCEDURE [FormalPars]); this grammar's formal_type has always been
-    // narrower than that. Widened only for the case the corpus actually uses — a PROCEDURE
-    // type as a callback parameter (voc's MultiArrays.Mod) — not the full Type recursion.
+    // narrower than that. Widened for the cases the corpus actually uses — a PROCEDURE
+    // type as a callback parameter (voc's MultiArrays.Mod), and a fixed-length array as a
+    // by-reference parameter type (AmigaOberon's GarbageCollector.mod
+    // `DuplicateOpenArray(VAR from,to: ARRAY 100000H OF SYSTEM.ADDRESS; ...)`, the only
+    // corpus occurrence of a length on a formal ARRAY) — not the full Type recursion.
     formal_type: $ => seq(
-      repeat(seq($.kArray, $.kOf)),
+      repeat(seq($.kArray, optional($.length), $.kOf)),
       choice($.qualident, $.procedure_type)
     ),
 
