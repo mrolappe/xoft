@@ -48,3 +48,9 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
   source, read the generated tree before trusting it, especially near an existing
   bodiless/optional-body alternative; prefer copying the real corpus file's unambiguous
   structural shape over a minimal invented skeleton.
+- **A 13-round-old scoping decision (`STRUCT` "bigger than lexical-superset scope") was restated
+  every round without being re-sampled** → treat a user re-asking about an old scoping call as a
+  trigger to re-derive from the actual corpus, not just cite the prior answer.
+- **Modeled `BPOINTER` as a modifier keyword like its sibling `UNTRACED`, without checking its
+  own corpus line** → a second dialect keyword found alongside one just confirmed can still have
+  an unrelated grammar shape; verify each one against real source individually.

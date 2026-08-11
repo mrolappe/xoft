@@ -1,100 +1,68 @@
 # Next task
 
-**M1.4 continued — raise the three still-open scoping questions with the user, then pick
-whichever root has fresh non-deferred work.** `stj` reached 0 failures in round 22 (full pass,
-first root to get there). `amiga-oberon-31` (61 failures) and `oberon-a` (20 failures) both now
-consist almost entirely of items already triaged in earlier rounds and either scoped out,
-deferred pending a user decision, or individually low-value — there's very little "sample and
-find a new cluster" work left in either without either (a) getting an answer on the open
-questions below, or (b) picking off the handful of untriaged one-offs in `oberon-a` or `voc`'s 4
-remaining files.
+**M1's ≥95% exit criterion is now met (95.96%, 760/792). Ask the user whether to declare M1 done
+and move to M2, or keep closing the remaining ~4% first** — this is a milestone-boundary
+decision, not a routine "pick the next cluster" call, so don't just plow into M2 or into further
+grammar rounds without checking. If the user wants to keep closing gaps, the un-diagnosed
+5-file `amiga-oberon-31` cluster below is the best next lead (found this round, not yet looked
+at); if not, M2 (`docs/plan.md`'s lossless parse/serialize core) is queued and unblocked.
 
 ## What's confirmed (do not re-derive, just verify before coding)
 
-- **Current state**: `sweep_corpus.py` passes 707/792 (89.27%), up from 666/792 (84.09%) last
-  round. M1's exit criterion is ≥95% (`docs/plan.md`, D8) — still below it. Per-root: `stj` 0
-  (done), `amiga-oberon-31` 61, `oberon-a` 20, `voc` 4.
-- **Three scoping questions are now open and blocking further progress**, none attempted, none
-  scoped out — ask the user before touching any of them:
-  1. **`Break.mod`/`NoGuru.mod`'s dual pragma-guarded `MODULE` headers** (round 20, user
-     explicitly deferred — "skip for now, revisit later," not "scope out" or "implement now").
-     2 files in `amiga-oberon-31`: `(* $IF X *) MODULE A; (* $ELSE *) MODULE B; (* $END *)`.
-     `oberon-a` has the same pattern in `source/Library/OberonLib.mod` (confirmed round 21,
-     not yet raised). Treat as one scoping question covering both roots' occurrences (3 files
-     total), not two separate ones.
-  2. **`\"` (backslash-quote) inside a string literal** (round 21, found but not attempted):
-     `oberon-a`'s `ErrorMessages.mod`/`OBumpRevMsg.mod` (FlexCat-generated catalog files) need
-     it read as an escaped quote; `voc`'s `ulmPrint.Mod`/`Printer.Mod` (currently *passing*)
-     rely on `"\"` being a complete one-backslash string with **no** escape processing —
-     standard Oberon-2 has no string-escape syntax at all, so neither reading is "more
-     correct," and fixing one breaks the other. See `docs/insights.md` round 21's "Two corpus
-     dialect idioms" entry for the full shape of this kind of question.
-  3. **`STRUCT`/`UNTRACED POINTER`** (round 9, reaffirmed every round since) — still scoped
-     **out** of M1 to Phase 2. This is `amiga-oberon-31`'s entire remaining cluster (≈59 of its
-     61 files). Not a new question, just restating it's still the reason most of that root's
-     count won't move without a Phase 2 kickoff — don't rediscover this as "new."
-- **`oberon-a`'s remaining 20 failures, fully triaged, nothing new to find without picking one
-  off individually**:
-  - 8 non-Oberon stub files (never will parse, not a grammar gap): `source/AmigaUtil/Args.mod`,
-    `BoopsiUtil.mod`, `HookUtil.mod`, `RexxUtil.mod`, `source/framework/GTEvents.mod`,
-    `source/Library/BigSets.mod`, `StdIO.mod`, `source/ProjectOberon/Files.mod`. No decision
-    yet on whether `sweep_corpus.py` should exclude non-source files from the denominator (not
-    raised with the user, low priority, only 8/792 ≈ 1%).
-  - 2 trailing-NUL-byte files: `source/FPE/HelloWorld.mod`, `source/Misc/Skeleton.mod`. Add
-    `\x00` to `extras`' regex and the scanner's `is_space()` if picked up (same fix shape as
-    round 20's NBSP precedent) — one-line, low value, 2 files.
-  - `OberonLib.mod` — see scoping question 1 above.
-  - `ErrorMessages.mod`/`OBumpRevMsg.mod` — see scoping question 2 above.
-  - **7 not-yet-individually-triaged**: `examples/amok/IntuiPointer/IntuiPointer.mod`,
-    `IntuiPointerDemo.mod`, `examples/Oberon0/AsciiTexts.Mod`, `source/amiga/Intuition.mod`,
-    `Utility.mod`, `source/Kernel/Kernel.mod`, `source/Obsolete/GTEvents.mod`. (Round 21 also
-    listed `source/OC/OCS.mod` here — that one was fixed as a cross-dialect side effect of
-    round 22's `stj` work, confirmed via `diff` against the pre-round failure list, not
-    assumed.) Worth a quick look if picked up.
-- **`voc`'s 4 remaining failures** (unchanged since round 20, all deferred): two trailing-garbage
-  files (free text/binary blob appended after `END Module.`) and one bare-real-literal lexer
-  ambiguity (`ulmRandomGenerators.Mod`'s `1.` colliding with round 18's `2..4` range fix,
-  needing external-scanner lookahead) — plus one more not yet individually named this round,
-  re-check `voc/misc/MultiArrayRiders.Mod`, `MultiArrays.Mod`, `s3/ethUnicode.Mod` if picked up.
-- **`tree-sitter generate`'s conflict-resolution suggestion names the exact colliding symbols
-  — pair those, not their containing rules.** Round 22: `[$.external_proc_decl,
-  $.procedure_heading]` did *not* resolve an unresolved-conflict error; `[$.external_proc_decl,
-  $.kMinus]` (exactly what the generator's own error message suggested) did. See
-  `docs/insights.md` round 22.
-- **A dialect's own compiler manual (`*.doc`/`*.txt` in the corpus root) is worth reading before
-  finalizing a fix based on corpus-only inference, not just as an afterthought** — `stj`'s
-  `DOC/STJ-OBN.TXT` confirmed round 22's `PROCEDURE~`/`RETURN^`/assignment-expression fixes
-  exactly, including a companion feature (`a := b := proc()` chaining) not yet seen bare in the
-  sampled corpus. Check for a manual before inferring a dialect construct's shape purely from
-  usage — this was already `NEXT.md` guidance from earlier rounds, round 22 is just the first
-  time it actually had a hit.
-- **After `tree-sitter test --update` succeeds on a *hand-written* (not corpus-copied) test
-  source, read the generated tree before trusting it** — round 22's first `PROCEDURE~` test was
-  accidentally ambiguous with an unrelated bodiless-heading rule and "0 errors" didn't catch it.
-  Prefer copying a real corpus file's structural shape over a minimal invented one. See
-  `docs/errors.md`/`docs/checklist.md` round 22.
-- **A whole-file `ERROR` node wrapping otherwise-fully-valid children means the *outermost* rule
-  failed to reduce** — look at the file's overall structure, not at "some construct deep inside
-  is unsupported." Always run `tree-sitter parse <file> | grep -n "ERROR\|MISSING"` on the full
-  tree. (Round 21 insight, still applies.)
-- **`grep -r` over the raw corpus silently skips Latin-1 files unless given `-a`.** Default to
-  `-a` on every fresh `grep -r`/`grep -rl` against these corpus roots.
-- **`procedure_decls` has 4 alternatives** (`procedure_decl`, `forward_decl`,
-  `definition_proc_decl`, `external_proc_decl`) at the *module* level. `procedure_body`'s nested
-  declaration repeat is narrower: `procedure_decl`/`forward_decl` only, unchanged since round
-  21. `conflicts` now has three entries: `[procedure_decl, definition_proc_decl]` (round 12),
-  `[selector, actual_params]` (round 19, documentation-only per `tree-sitter generate`'s
-  "unnecessary conflicts" warning — still expected, not a bug), `[external_proc_decl, kMinus]`
-  (round 22, see above).
+- **Current state**: `sweep_corpus.py` passes 760/792 (95.96%), up from 707/792 (89.27%) last
+  round. Per-root: `stj` 0 failures (done since round 22), `amiga-oberon-31` 8, `oberon-a` 20,
+  `voc` 4.
+- **This round's work** (user asked "what would tackling STRUCT/UNTRACED POINTER entail?" —
+  sampling the real corpus showed round 9's "bigger than lexical-superset scope" call was
+  stale, not still-correct, so it was implemented rather than re-deferred): AmigaOberon
+  `STRUCT` (near-`RECORD` shape — same field-list-seq, same `END`, but its parenthesized slot
+  is a C-struct-embedding *named field* `(ident: Type)`, not a bare base-type reference; also
+  legal as an anonymous inline pointer target, so it joins `struct_type`'s choice, not just
+  `type_decl`'s RHS), `UNTRACED POINTER TO Type` (new optional keyword ahead of `kPointer`), and
+  `BPOINTER TO Type` (AmigaDOS's BCPL-relative pointer, found mid-round while re-tallying —
+  replaces `POINTER` entirely, does *not* modify it like `UNTRACED` does; first attempt got this
+  wrong, see `docs/errors.md`/`docs/checklist.md` round 23). +53 files, all in
+  `amiga-oberon-31` except a few reused pieces elsewhere.
+- **Two of the three round-20/21 scoping questions are resolved, one still open**:
+  1. **Dual pragma-guarded `MODULE` headers** (`Break.mod`/`NoGuru.mod`/`OberonLib.mod`, 3
+     files) — user confirmed round 23: **stays scoped out of M1, Phase 2 item.** Don't re-raise.
+  2. **`\"` (backslash-quote) inside a string literal** — user confirmed round 23: make it
+     **dialect/root-specific** rather than picking one reading (`oberon-a`'s
+     `ErrorMessages.mod`/`OBumpRevMsg.mod` need escaped-quote handling; `voc`'s
+     `ulmPrint.Mod`/`Printer.Mod`, currently passing, need the opposite, no-escape reading).
+     **Not yet implemented** — needs a design decision (external scanner keyed on which corpus
+     root/dialect is active, since `string_literal` is currently a single lexer-level choice
+     with no such hook point) before coding. Affects 4 files total (2 currently failing, 2
+     currently passing that must not regress).
+  3. **`STRUCT`/`UNTRACED POINTER`** — done this round, no longer scoped out (see above). Remove
+     any remaining references to it as a Phase 2 item if found stale elsewhere.
+- **`amiga-oberon-31`'s 8 remaining failures**:
+  - 3 are the still-deferred dual pragma-guarded `MODULE` headers (scoping question 1 above):
+    `Module/Break.mod`, `Module/NoGuru.mod`, `Module/OberonLib.mod` (also occurs in `oberon-a`'s
+    `source/Library/OberonLib.mod`, same construct, different file).
+  - **5 are newly visible this round, found but not diagnosed**: `Interfaces/Commodities.mod`,
+    `Interfaces/Rexx.mod`, `Interfaces/Utility.mod`, `Module/Concurrency.mod`,
+    `Module/GarbageCollector.mod`. Each showed a whole-file `ERROR` span (`[0,0]-[N,0]` or
+    similar) when spot-checked, which per `docs/errors.md`'s round-21 lesson means the
+    *outermost* rule failed to reduce somewhere, not necessarily near where the span starts —
+    re-run `tree-sitter parse` on each and search the full tree for the first real `ERROR`, don't
+    assume it's related to `STRUCT`/`UNTRACED`/`BPOINTER` just because those were this round's
+    theme (each `Interfaces/Dos.mod`-style near-miss already got fixed; these might be a
+    different construct entirely).
+- **`oberon-a`'s remaining 20 failures — unchanged since round 21/22, fully triaged**, see round
+  21/22 entries in `docs/progress/m1-grammar.md` for the full breakdown (8 non-Oberon stub
+  files, 2 trailing-NUL-byte files, `OberonLib.mod` per scoping question 1, `ErrorMessages.mod`/
+  `OBumpRevMsg.mod` per scoping question 2, 7 not-yet-individually-triaged one-offs).
+- **`voc`'s 4 remaining failures — unchanged since round 20, all deferred**: two
+  trailing-garbage files, one bare-real-literal lexer ambiguity (`ulmRandomGenerators.Mod`),
+  `ulmPrint.Mod`/`Printer.Mod`'s passing status is what scoping question 2 must not break.
 
-## How to find the next cluster (reproduction, same method as rounds 8–22)
+## How to find the next cluster (reproduction, same method as rounds 8–23)
 
 ```sh
 cd grammars/tree-sitter-oberon2
 python3 sweep_corpus.py -v > /tmp/sweep_v.txt   # -v prints tree-sitter's stdout per failure
-# Tally failures by root first:
 grep -oE "^  [a-zA-Z0-9_.-]+/" /tmp/sweep_v.txt | sort | uniq -c | sort -rn
-grep "^  oberon-a/" /tmp/sweep_v.txt | sed 's#^  oberon-a/##'
 python3 -c "
 from pathlib import Path
 p = Path('<absolute corpus path from roots.toml>/<relative path from sweep output>')
@@ -104,62 +72,45 @@ tree-sitter parse /tmp/x.mod | grep -n "ERROR\|MISSING"   # find EVERY error nod
 ```
 
 Corpus files are Latin-1 except `voc` (UTF-8); always transcode Latin-1 roots before feeding to
-`tree-sitter parse`. `stj`'s extension is capitalized (`.MOD`/`.mod` mixed) — check both when
-grepping (moot now that `stj` is at 0, but relevant if a regression shows up there later).
+`tree-sitter parse`.
 
-Cross-check any candidate against `docs/language-baseline.md` first, and check for a
-`*.doc`/`*.txt` compiler manual in the corpus root before inferring a dialect construct's shape
-purely from usage — `stj`'s `DOC/STJ-OBN.TXT` paid off directly in round 22. Only flag a scoping
-question to the user when the construct is genuinely ambiguous or structural (the three above),
-not a routine grammar addition.
-
-## Definition of done
+## Definition of done (if the user picks "keep closing gaps")
 
 - `tree-sitter test` still green, plus at least one new corpus case per construct implemented,
-  filled either via `tree-sitter test --update` (scoped with `-i "<test name>"` to avoid
-  reformatting the whole file) and read back to confirm no `ERROR`/`MISSING` nodes, or
-  hand-written by copying a structurally identical existing test's shape verbatim.
-- Re-run `sweep_corpus.py` before/after, record the delta in `docs/progress/m1-grammar.md` (new
-  round section, same format as rounds 9–22). After any fix, re-tally failures by root.
+  via `tree-sitter test --update` (scoped with `-i "<test name>"`) and read back to confirm no
+  `ERROR`/`MISSING` nodes — don't trust "0 errors" alone, especially for a hand-written (not
+  corpus-copied) source.
+- Before modeling a new dialect keyword on a sibling found in the same grep pass, read its own
+  corpus line first — don't assume it shares the sibling's grammar shape (round 23's `BPOINTER`
+  mistake).
+- Re-run `sweep_corpus.py` before/after, record the delta in `docs/progress/m1-grammar.md`.
 - Update `PROGRESS.md`'s round table and M1 line with the new percentage.
-- No changes outside `grammars/tree-sitter-oberon2/`.
 
 ## Context a fresh session needs
 
-- `docs/progress/m1-grammar.md` round 22 — all six fixes in full (record-embedded procedure
-  headings, trap-bound `PROCEDURE-` headings and the `kMinus`/`external_proc_decl` conflict
-  fight, `PROCEDURE~`/`RETURN^` confirmed against the compiler manual, the assembler-comment
-  scanner fix, CASE label widened to `ConstExpr`, assignment expressions), plus the cross-dialect
-  bonus fix and the three still-open scoping questions listed above.
-- `docs/insights.md` round 22 (three new entries) — the compiler-manual-as-primary-source
-  lesson, the `tree-sitter generate` conflict-pairing lesson, and the ambiguous-hand-written-test
-  lesson.
-- `docs/errors.md`/`docs/checklist.md` round 22 — the two mistakes made this round (wrong
-  conflict pairing on the first attempt, an accidentally-ambiguous hand-written test) and their
-  mitigations.
-- `docs/plan.md` — D1 (lexical superset scope), D8 (allowlist cap, done criterion), M1's exit
-  criterion (≥95%, currently 89.27%).
+- `docs/progress/m1-grammar.md` round 23 — `STRUCT`/`UNTRACED POINTER`/`BPOINTER` in full,
+  including why round 9's original scoping call was wrong, not just old.
+- `docs/insights.md` round 23 — the "re-sample a stale scoping decision instead of restating it"
+  lesson and the "verify each sibling keyword's shape individually" lesson.
+- `docs/errors.md`/`docs/checklist.md` round 23 — the `BPOINTER`-modeled-as-modifier mistake and
+  its mitigation.
+- `docs/plan.md` D8 and M1's exit criterion (`docs/plan.md` line ~96): "≥95% of corpus files
+  parse with zero ERROR/MISSING; one `tree-sitter test` case per construct" — now met.
 
 ## State of the tree
 
-- `grammar.js`: eight changes from round 21's description:
-  - `field_list` gained a `$.procedure_heading` choice arm (STJ DEFINITION-module RECORD
-    bodies).
-  - `procedure_heading`'s mark slot widened from `optional($.kStar)` to
-    `optional(choice($.kStar, $.kMinus, '~'))` (STJ `-`/`~` marks), and gained a trailing
-    `optional($.trap_offset)`.
-  - New `trap_offset = integer "," integer` rule.
-  - `return_statement` gained a leading `optional('^')` before its existing
-    `optional($.expression)`.
-  - `label` replaced entirely: was `choice($.integer, $.string, $.qualident)`, now
-    `$.const_expression`.
-  - `assignment`'s RHS widened from `$.expression` to `choice($.assignment, $.expression)`
-    (right-recursive chaining).
-  - `factor` gained `seq('(', $.assignment, ')')` as a new alternative.
-  - `conflicts` gained `[$.external_proc_decl, $.kMinus]` (third entry).
-- `src/scanner.c`: one change — the `ASSEMBLER_BODY` raw-scan loop now skips `;`-to-newline
-  Motorola-style comments before checking for the closing "END" word, so comment prose
-  containing "END" doesn't falsely terminate the block. NBSP handling (round 20) unchanged.
-- `sweep_corpus.py`: unchanged. Baseline for the next round: **89.27% (707/792)**, `stj` at
+- `grammar.js`: four changes from round 22's description:
+  - `struct_type`'s choice gained a fifth arm, `$.amiga_struct_type`.
+  - New `amiga_struct_type` rule: `kStruct ["(" field_list ")"] [field_list_seq] kEnd`.
+  - `pointer_type` restructured from a single `seq` into a `choice` of two forms: the existing
+    `POINTER`-headed form (now with an added `optional($.kUntraced)` prefix) and a new
+    `kBPointer $.kTo $.type` form.
+  - New keyword tokens `kStruct`, `kUntraced`, `kBPointer`.
+- `src/scanner.c`: unchanged this round.
+- `test/corpus/types.txt`: 6 new cases (`AmigaOberon Struct Type`, `AmigaOberon Empty Struct
+  Type`, `AmigaOberon Struct Embedded Base Field`, `AmigaOberon Untraced Pointer`, `AmigaOberon
+  Untraced Pointer To Anonymous Struct`, `AmigaOberon BCPL-Relative Pointer`), all copied from
+  real corpus shapes, all read back after `--update` per the checklist rule.
+- `sweep_corpus.py`: unchanged. Baseline for the next round: **95.96% (760/792)**, `stj` at
   **100%**.
 - Rust workspace untouched since M0 — not expected to be touched by grammar-only rounds.

@@ -350,3 +350,244 @@ END Types.
   (module_footer
     (kEnd)
     (ident)))
+
+===========================
+AmigaOberon Struct Type
+===========================
+
+MODULE Types;
+  TYPE
+    TypDesc = STRUCT
+      typedesc: LONGINT;
+    END;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (amiga_struct_type
+            (kStruct)
+            (field_list_seq
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident)))
+                (type
+                  (qualident
+                    (ident)))))
+            (kEnd))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+AmigaOberon Empty Struct Type
+===========================
+
+MODULE Types;
+  TYPE
+    CommonNode = STRUCT END;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (amiga_struct_type
+            (kStruct)
+            (kEnd))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+AmigaOberon Struct Embedded Base Field
+===========================
+
+MODULE Types;
+  TYPE
+    Node = STRUCT (dummy: CommonNode)
+      succ : NodePtr;
+      pri  : SHORTINT;
+    END;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (amiga_struct_type
+            (kStruct)
+            (field_list
+              (ident_list
+                (ident_def
+                  (ident)))
+              (type
+                (qualident
+                  (ident))))
+            (field_list_seq
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident)))
+                (type
+                  (qualident
+                    (ident))))
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident)))
+                (type
+                  (qualident
+                    (ident)))))
+            (kEnd))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+AmigaOberon Untraced Pointer
+===========================
+
+MODULE Types;
+  TYPE
+    TypPtr = UNTRACED POINTER TO TypDesc;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (pointer_type
+            (kUntraced)
+            (kPointer)
+            (kTo)
+            (type
+              (qualident
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+AmigaOberon Untraced Pointer To Anonymous Struct
+===========================
+
+MODULE Types;
+  VAR
+    execBase: UNTRACED POINTER TO STRUCT
+      dummy: ARRAY 276 OF CHAR;
+    END;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (variable_decls
+    (kVar)
+    (variable_decl
+      (ident_list
+        (ident_def
+          (ident)))
+      (type
+        (struct_type
+          (pointer_type
+            (kUntraced)
+            (kPointer)
+            (kTo)
+            (type
+              (struct_type
+                (amiga_struct_type
+                  (kStruct)
+                  (field_list_seq
+                    (field_list
+                      (ident_list
+                        (ident_def
+                          (ident)))
+                      (type
+                        (struct_type
+                          (array_type
+                            (kArray)
+                            (length
+                              (const_expression
+                                (expression
+                                  (simple_expression
+                                    (term
+                                      (factor
+                                        (number
+                                          (integer))))))))
+                            (kOf)
+                            (type
+                              (qualident
+                                (ident))))))))
+                  (kEnd)))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+AmigaOberon BCPL-Relative Pointer
+===========================
+
+MODULE Types;
+  TYPE
+    FileLockPtr* = BPOINTER TO FileLock;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident)
+        (kStar))
+      (type
+        (struct_type
+          (pointer_type
+            (kBPointer)
+            (kTo)
+            (type
+              (qualident
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))

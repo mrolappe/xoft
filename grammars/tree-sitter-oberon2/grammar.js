@@ -219,7 +219,26 @@ module.exports = grammar({
       $.array_type,
       $.record_type,
       $.pointer_type,
-      $.procedure_type
+      $.procedure_type,
+      $.amiga_struct_type
+    ),
+
+    // amiga_struct_type = "STRUCT" ["(" field_list ")"] [field_list_seq] "END"
+    // AmigaOberon dialect extension (not in normative EBNF — AmigaOberon is based on
+    // Wirth's original Oberon report, not Oberon-2, see docs/language-baseline.md): a
+    // C-interop struct type for foreign (non-GC-tracked) Amiga library structures, always
+    // paired with UNTRACED POINTER. Structurally close to record_type, but the parenthesized
+    // "base" slot is a single embedded named field (ident ":" type), C-struct-embedding
+    // style, not a bare base-type reference — confirmed via corpus (OberonLib.mod's `Node =
+    // STRUCT (dummy: CommonNode) succ: NodePtr; ... END`). Reuses field_list_seq's own
+    // leading-";" continuation branch for what follows the parenthesized field (confirmed by
+    // OberonLib.mod's `MemElement = STRUCT (node: MinNode); size: LONGINT; ... END`), so no
+    // separate rule is needed for the "; more fields" tail.
+    amiga_struct_type: $ => seq(
+      $.kStruct,
+      optional(seq('(', $.field_list, ')')),
+      optional($.field_list_seq),
+      $.kEnd
     ),
 
     // array_type = "ARRAY" length {"," length} "OF" type
@@ -280,9 +299,17 @@ module.exports = grammar({
       $.ident_def, repeat(seq(',', $.ident_def))
     ),
 
-    // pointer_type = "POINTER" "TO" type
-    pointer_type: $ => seq(
-      $.kPointer, optional($.sysflag), $.kTo, $.type
+    // pointer_type = ["UNTRACED"] "POINTER" "TO" type | "BPOINTER" "TO" type
+    // AmigaOberon dialect extension (not in normative EBNF, confirmed via corpus): "UNTRACED"
+    // marks a pointer as not tracked/scanned by the garbage collector, always paired in the
+    // corpus with an amiga_struct_type (or otherwise foreign-layout) target, e.g. `UNTRACED
+    // POINTER TO TypDesc`. "BPOINTER" is AmigaDOS's own BCPL-relative pointer type — a
+    // distinct keyword replacing "POINTER" entirely rather than modifying it (confirmed via
+    // corpus, e.g. Dos.mod's `FileLockPtr* = BPOINTER TO FileLock;`, never "BPOINTER POINTER
+    // TO").
+    pointer_type: $ => choice(
+      seq(optional($.kUntraced), $.kPointer, optional($.sysflag), $.kTo, $.type),
+      seq($.kBPointer, $.kTo, $.type)
     ),
 
     // procedure_type = "PROCEDURE" [formal_params]
@@ -832,6 +859,9 @@ module.exports = grammar({
     kReturn: $ => 'RETURN',
 
     kPointer: $ => 'POINTER',
+    kUntraced: $ => 'UNTRACED',
+    kBPointer: $ => 'BPOINTER',
+    kStruct: $ => 'STRUCT',
 
     kProcedure: $ => 'PROCEDURE',
 

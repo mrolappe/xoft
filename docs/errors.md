@@ -225,3 +225,17 @@ valid parse was found, not the intended one. Prefer copying the real corpus file
 shape (receiver, enclosing `END name;` before further content) over a minimal invented
 skeleton, since the corpus shape is unambiguous by construction and a minimal invented one may
 not be.
+
+### Round 23: modeled `BPOINTER` as a modifier keyword like its sibling `UNTRACED`, without checking its actual corpus shape first
+
+Found `BPOINTER TO Type` (AmigaDOS's BCPL-relative pointer) in the same re-tally pass that
+confirmed `UNTRACED POINTER TO Type`. Because both are AmigaOberon pointer-type keywords found
+via the same grep, the first `pointer_type` draft added `kBPointer` as a second optional
+modifier ahead of the mandatory `kPointer` — the same slot `kUntraced` occupies — which would
+require `BPOINTER POINTER TO Type` to parse. Re-reading the actual corpus line (`Interfaces/
+Dos.mod`: `FileLockPtr* = BPOINTER TO FileLock;`) before running `tree-sitter test --update`
+showed `BPOINTER` fully replaces `POINTER`, never co-occurring with it.
+
+**Mitigation:** when a second dialect keyword surfaces alongside one just confirmed (same grep,
+same root, superficially similar semantics), read its own corpus line before assuming it shares
+the first one's grammar shape — don't extrapolate from a sibling's already-confirmed shape.

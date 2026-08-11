@@ -1302,3 +1302,72 @@ per round 20). With `stj` fully clear, round 23 should either raise the three st
 scoping questions with the user (`Break.mod`/`NoGuru.mod`, `OberonLib.mod`, `\"`
 string-escape) since they're now the main thing blocking further `amiga-oberon-31`/`oberon-a`
 progress, or sample `oberon-a`'s 7 untriaged one-offs / `voc`'s 4 remaining next.
+
+## M1.4 continued — `STRUCT`/`UNTRACED POINTER`/`BPOINTER` ✅ (round 23, 2026-08-11)
+
+Round 9 scoped `STRUCT` out of M1 to Phase 2 on the assumption it was "a genuine second
+record-like type, bigger than D1's lexical-superset scope." Before accepting that assumption
+again this round, sampled the actual corpus (58 files with `STRUCT`, 61 with `UNTRACED`,
+overlapping) rather than re-deferring on the strength of the old note — the shape turned out to
+be a same-tier grammar addition, not a Phase 2-sized one, so the scoping call itself was stale,
+not just restated.
+
+**Confirmed shape**, all via direct corpus reads (`Module/Objects.mod`, `Module/OberonLib.mod`,
+`Module/GarbageCollector.mod`, `Module/NoGuru.mod`, `Interfaces/DataTypes.mod`):
+
+- `STRUCT` is structurally near-identical to `RECORD`: `"STRUCT" ["(" ... ")"] [FieldListSeq]
+  "END"`, same field-list-seq, same empty-body case (`STRUCT END`). The one real difference:
+  the parenthesized slot isn't a bare base-type reference like `RECORD`'s — it's a single
+  embedded *named field* (`ident ":" type`), C-struct-embedding style, e.g. `Node = STRUCT
+  (dummy: CommonNode) succ: NodePtr; ... END`. Confirmed the embedded field is just the first
+  item of the same field-list-seq (not a separate slot) via `OberonLib.mod`'s `MemElement =
+  STRUCT (node: MinNode); size: LONGINT; ... END` — the `;` right after the closing paren is
+  `field_list_seq`'s own existing leading-`;` continuation branch, so no new rule was needed for
+  "the rest of the fields," only for the parenthesized first one.
+  It also appears anonymously inline as a pointer target (`UNTRACED POINTER TO STRUCT dummy:
+  ARRAY 276 OF CHAR; END`), so it had to join `struct_type`'s existing choice (which already
+  funnels into `type` for exactly this reason), not just `type_decl`'s RHS.
+- `UNTRACED POINTER TO Type` — trivial, a new optional keyword ahead of the existing `kPointer`.
+  Always paired with `STRUCT` or another foreign-layout target in the corpus, never combined
+  with `sysflag`.
+- `BPOINTER TO Type` — found while re-tallying `amiga-oberon-31`'s remaining failures after the
+  `STRUCT`/`UNTRACED` fix (`Interfaces/Dos.mod`, 13 occurrences across 2 files): AmigaDOS's
+  BCPL-relative pointer type. **Not** a modifier on `POINTER` the way `UNTRACED` is — it fully
+  replaces the `POINTER` keyword (`BPOINTER TO FileLock`, never `BPOINTER POINTER TO`). First
+  implementation attempt got this wrong (wrote it as a second optional modifier ahead of the
+  mandatory `kPointer`, which would require both keywords present) — caught before running
+  `--update` by re-reading the actual corpus line instead of trusting the pattern-matched
+  assumption from `UNTRACED`. Fixed by making `pointer_type` a `choice` between the
+  `POINTER`-headed form and a separate `BPOINTER "TO" type` form.
+
+**Grammar changes**, test-first (5 new corpus cases for `STRUCT`/`UNTRACED`, 1 for `BPOINTER`,
+all copied from real corpus shapes, `tree-sitter test --update` output read back per the
+checklist rule before trusting it — no `ERROR`/`MISSING`, embedded-base field nested correctly
+ahead of `field_list_seq` in every case):
+
+- New `amiga_struct_type` rule (kept distinct from the pre-existing `struct_type`, which is the
+  baseline EBNF's unrelated "structured type" grouping choice — same English word, different
+  grammar concept, picked a different rule name to avoid the collision) added as a fifth arm of
+  `struct_type`'s choice.
+- New `kStruct`, `kUntraced`, `kBPointer` keyword tokens.
+- `pointer_type` widened to `choice(seq(optional($.kUntraced), $.kPointer, ..., $.kTo, $.type),
+  seq($.kBPointer, $.kTo, $.type))`.
+
+| Construct | Corpus count | Status |
+|---|---|---|
+| `STRUCT` | 58 | ✅ done this round |
+| `UNTRACED POINTER` | 61 | ✅ done this round |
+| `BPOINTER` | 2 files, 13 occurrences | ✅ done this round (found mid-round, not in the original scoping question) |
+
+89.27% → 95.96% (707 → 760/792), +53 files. **M1's exit criterion (≥95% corpus parse, D8/plan.md)
+is now met.** Per-root: `stj` 0 (unchanged), `amiga-oberon-31` 8 (down from 61 — the 3 files with
+round-20's deferred dual pragma-guarded `MODULE` headers, still explicitly out of scope per the
+user's answer this round, plus 5 newly-visible failures with whole-file `ERROR` spans, not yet
+diagnosed), `oberon-a` 20 (unchanged, still fully triaged per round 21/22, blocked on the `\"`
+string-escape scoping question), `voc` 4 (unchanged, all deferred per round 20).
+
+Two of the three round-20/21 scoping questions were resolved by the user this round: dual
+pragma-guarded `MODULE` headers stay scoped out of M1 (Phase 2), and the `\"`/`"\"` string-escape
+conflict is to be made dialect/root-specific rather than picking one reading — not yet
+implemented, `\"` needs an approach (external scanner or grammar variant) before coding, see
+`NEXT.md`.

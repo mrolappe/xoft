@@ -809,3 +809,36 @@ unambiguous by construction, not by any grammar guarantee. Lesson: after `tree-s
 before trusting it — "parses with 0 errors" is not the same as "parses the way I intended,"
 especially for any construct that reuses an existing bodiless-heading alternative elsewhere in
 the same rule.
+
+### A stale scoping decision is worth re-sampling before restating it, not just re-affirming
+
+Round 9 scoped `STRUCT`/`UNTRACED POINTER` out of M1 with the reasoning "a genuine second
+record-like type, bigger than D1's lexical-superset scope" — and every round since (12 through
+22) restated that call without re-checking it, per `NEXT.md`'s own "not a new question, just
+restating" framing. When the user asked what implementing it would actually entail (round 23),
+sampling the real corpus directly (`Module/Objects.mod`, `OberonLib.mod`, `DataTypes.mod`, ~15
+occurrences read in full) showed the round-9 characterization was simply wrong: `STRUCT` is
+structurally near-identical to `RECORD` (same field-list-seq, same optional-parens slot, same
+`END` terminator), a same-tier addition to constructs already implemented (`CASE...ELSE`,
+`POINTER TO ARRAY OF Type`). The *scoping call*, not just the *scoping question*, had gone
+stale — a decision recorded as "confirmed, don't re-derive" in a handoff doc is still only as
+good as the sampling that produced it, and a decision that's been carried forward unexamined for
+13 rounds is a candidate for a fresh look, not just a citation. Lesson: when a scoping decision
+is old enough that nobody has re-sampled the actual corpus since it was made, treat "user is
+asking about it again" as a trigger to re-derive from source, not just to restate the prior
+answer — the cost of one more `grep`/read pass is far lower than the cost of leaving real,
+same-tier grammar work misfiled as "Phase 2" indefinitely.
+
+### A near-identical dialect keyword can still have a structurally different shape — read the actual line before pattern-matching from its sibling
+
+While implementing `UNTRACED POINTER TO Type`, `BPOINTER TO Type` turned up in the same
+re-tally pass (`Interfaces/Dos.mod`). Because it *looks* like a sibling of `UNTRACED` (both are
+AmigaOberon pointer-type keywords found in the same grep sweep), the first draft modeled it the
+same way — an optional modifier keyword ahead of the mandatory `kPointer` — which would have
+required `BPOINTER POINTER TO Type` to parse, a shape that appears nowhere in the corpus.
+Re-reading the actual corpus line (`FileLockPtr* = BPOINTER TO FileLock;`) before running
+`--update` showed `BPOINTER` fully replaces `POINTER`, it never co-occurs with it. Lesson: two
+dialect keywords found together and superficially similar (same grep, same corpus root, same
+"pointer" semantics) can still have unrelated grammar shapes — verify each one's actual token
+sequence against real source individually, don't extrapolate the second from the first's
+already-confirmed shape.
