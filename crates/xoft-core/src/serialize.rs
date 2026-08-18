@@ -15,6 +15,17 @@ pub enum Span<'a> {
 }
 
 pub fn walk<'a>(tree: &Tree, text: &'a str) -> Vec<Span<'a>> {
+    walk_with(tree, text, |_, leaf| vec![Span::Leaf(leaf)])
+}
+
+/// `walk`, but each leaf is passed through `emit`, which may replace it with any number of
+/// spans. Gaps are never offered to `emit` -- whitespace, indentation and comments are
+/// carried through verbatim, which is what makes the M5 mapping layer's splices inherit
+/// the original layout instead of recomputing it (docs/plan.md M5.2).
+pub fn walk_with<'a, F>(tree: &Tree, text: &'a str, emit: F) -> Vec<Span<'a>>
+where
+    F: Fn(Node<'_>, &'a str) -> Vec<Span<'a>>,
+{
     let mut leaves = Vec::new();
     collect_leaves(tree.root_node(), &mut leaves);
 
@@ -26,7 +37,7 @@ pub fn walk<'a>(tree: &Tree, text: &'a str) -> Vec<Span<'a>> {
             spans.push(Span::Gap(&text[cursor..start]));
         }
         if end > start {
-            spans.push(Span::Leaf(&text[start..end]));
+            spans.extend(emit(leaf, &text[start..end]));
         }
         cursor = cursor.max(end);
     }

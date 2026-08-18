@@ -79,3 +79,9 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
   `tree_sitter_<name>_external_scanner_*` symbols to match** → link failure, only caught at
   `tree-sitter test`, not at `generate`. Rename both in the same step; a clean `generate` isn't
   proof the rename is complete.
+- **Nearly built a symmetric reverse for a mapping rule whose forward direction was many-to-one
+  (`BEGIN`/`DO` synonyms), chasing a byte-identical round-trip that cannot exist** → before
+  implementing any mapping rule, check injectivity first: if two distinct inputs collapse to one
+  output, no reverse rule is correct and the round-trip invariant must be scoped to where it
+  holds, not engineered around. A round-trip test whose fixtures all use one spelling will pass
+  anyway — pick fixtures that use *both* sides of any alias.

@@ -353,3 +353,30 @@ failure — `Undefined symbols for architecture arm64` — on the first `tree-si
 name), `grep tree_sitter_<old_name> src/scanner.c` and rename every match in the same step, before
 running `tree-sitter test`. A clean `generate` is not evidence the rename is complete — only a
 successful `test` (which actually links the scanner) is.
+
+## Round 36 — 2026-08-18
+
+### Nearly implemented a reverse mapping rule to satisfy a round-trip invariant that was impossible
+
+The round's brief settled two things that turn out to contradict each other: (1) Rule A
+(`BEGIN`/`DO`) is one-way, 2→X is a no-op; (2) `X→2→X` and `2→X→2` are both byte-identical. The
+first draft of the design resolved the contradiction the obvious way — make Rule A symmetric by
+having 2→X rewrite `BEGIN`→`DO` — and got as far as sketching the edit map before the first test
+fixture killed it. `X_UNLESS`'s procedure body opens with `BEGIN`, which is perfectly legal
+Oberon-X; under a symmetric Rule A that source round-trips to `DO`. The "fix" had not restored
+invertibility, it had swapped which Oberon-X sources lose information.
+
+The root cause is that `BEGIN` and `DO` are *synonyms*: the X→2 direction is many-to-one, so no
+inverse exists, and no arrangement of the reverse rule can manufacture one. The brief's claim was
+not a spec to satisfy but a premise to falsify. Had the symmetric version shipped, it would have
+passed a round-trip test built only from `DO`-spelled fixtures and silently corrupted every
+`BEGIN`-spelled one — a bug findable only by whoever wrote an M5.3 golden file the other way.
+
+**Mitigation:** before implementing a mapping rule, ask whether the rewrite is injective — do two
+distinct inputs produce the same output? If yes, no reverse rule can be correct, and a stated
+byte-identical round-trip invariant is impossible rather than merely unimplemented. Say so and
+scope the invariant to where it actually holds (here: unconditional for `2→X→2`, exact for the
+additive Rule B, up-to-normalization for the alias Rule A) instead of building machinery that
+makes the asymmetry harder to see. A given decision that asserts a property is *achievable* is
+still a claim to check, not an instruction — especially when its supporting argument only walks
+through one of the two rules it covers.

@@ -1039,3 +1039,47 @@ elapsed cost overstates the marginal cost of a second dialect experiment once th
 known. Worth remembering when M5's exit criterion finally gets written up: separate "cost of the
 grammar change itself" from "one-time cost of learning to fork this repo's grammar layout," since
 only the former recurs per dialect.
+
+## Round 36 — 2026-08-18
+
+### A synonym is not invertible; an added construct is. That distinction *is* M5's cost measurement
+
+M5.2's brief asserted `X→2→X` byte-identity "in both directions... achievable, not just
+aspirational," with an argument that only actually covered Rule B. It does not hold for Rule A,
+and the reason is structural rather than an emit-path shortcoming: `BEGIN` and `DO` are synonyms
+in Oberon-X, so two Oberon-X spellings map onto one Oberon-2 spelling. The function is
+many-to-one; the inverse does not exist. The tempting repair — make 2→X rewrite `BEGIN`→`DO` so
+the mapping looks symmetric — does not recover anything, it just relocates the loss onto Oberon-X
+sources that happen to spell it `BEGIN`. Two spellings cannot survive a trip through one.
+
+Rule B has the opposite shape and round-trips exactly, for a reason worth naming: `UNLESS` is an
+*added* construct, so the Oberon-2 form it lowers to (`IF ~(E) THEN …`) is a distinguishable
+sub-language of Oberon-2, and the reverse rule can be written to match precisely that image and
+nothing else. Every `IF` that Rule B did not produce is left alone — which is exactly what keeps
+`2→X→2` byte-identical too, since lifting a random `IF` would not be reversible either.
+
+So for M5's exit criterion ("what does one dialect experiment cost?"), the axis that predicts
+lossless round-tripping is not how big the feature is but whether it is **additive** (new
+construct, new syntax nothing else uses → bijective) or an **alias** (a second spelling of
+something that already exists → lossy in the lowering direction, permanently). A dialect built
+only from additive constructs round-trips byte-identically; a dialect with aliases has a
+normalizing direction and always will. This is cheap to know up front and expensive to discover
+in M5.3's golden files, so it belongs in the design conversation for the *next* dialect.
+
+### "Inherited indentation" is a property you get by not having a layout engine, not one you build
+
+`docs/plan.md` M5.2's phrase "template splicing with inherited indentation" reads like a feature
+to implement — find the splice point's indentation, reuse it. It turned out to be the *absence*
+of a feature. M2's serializer already partitions the source into leaves and gaps, and every gap
+is whitespace plus comments by construction (D4). Generalizing `walk` into `walk_with`, which
+offers only *leaves* to the caller's rewrite closure and passes gaps through untouched, makes
+inherited indentation unfalsifiable: there is no code path that could compute a different
+indentation, because there is no code that computes indentation at all. The whole mapping layer
+is ~150 lines with no notion of a line, a column, or a nesting depth.
+
+The generalization also cost nothing structurally — `walk` became a one-line delegation to
+`walk_with`, so the gap-cursor logic (the fiddly part, with its `cursor.max(end)` overlap guard)
+still exists in exactly one place and both callers are proven against it by M2's existing tests.
+Worth remembering the shape: when a new consumer needs "the same traversal but with a hook,"
+parameterizing the existing traversal beats a parallel one, and the tell is that the old function
+survives as a trivial default argument.
