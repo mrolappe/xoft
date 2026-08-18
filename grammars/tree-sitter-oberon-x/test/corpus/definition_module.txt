@@ -1,0 +1,86 @@
+=================
+Definition Module
+=================
+
+DEFINITION Out;
+  PROCEDURE Open;
+  PROCEDURE Char(ch: CHAR);
+END Out.
+---
+
+(module
+  (definition_header
+    (kDefinition)
+    (ident))
+  (definition_proc_decl
+    (procedure_heading
+      (kProcedure)
+      (ident_def
+        (ident))))
+  (definition_proc_decl
+    (procedure_heading
+      (kProcedure)
+      (ident_def
+        (ident))
+      (formal_params
+        (fp_section
+          (ident)
+          (formal_type
+            (qualident
+              (ident)))))))
+    (module_footer
+      (kEnd)
+      (ident)))
+
+===============================
+Definition Module With Constants
+===============================
+
+DEFINITION MathCom;
+  CONST
+    pi* = 3;
+
+  PROCEDURE frexp*(value: REAL; VAR exp: INTEGER): REAL;
+END MathCom.
+---
+
+(module
+  (definition_header
+    (kDefinition)
+    (ident))
+  (const_decls
+    (kConst)
+    (const_decl
+      (ident_def
+        (ident)
+        (kStar))
+      (const_expression
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (number
+                  (integer)))))))))
+  (definition_proc_decl
+    (procedure_heading
+      (kProcedure)
+      (ident_def
+        (ident)
+        (kStar))
+      (formal_params
+        (fp_section
+          (ident)
+          (formal_type
+            (qualident
+              (ident))))
+        (fp_section
+          (kVar)
+          (ident)
+          (formal_type
+            (qualident
+              (ident))))
+        (qualident
+          (ident)))))
+    (module_footer
+      (kEnd)
+      (ident)))

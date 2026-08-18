@@ -1,0 +1,94 @@
+================
+Forward Declared
+================
+
+MODULE Forward;
+  PROCEDURE^ KeyPressed*() : BOOLEAN;
+
+  PROCEDURE Hello;
+  END Hello;
+END Forward.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (forward_decl
+      (kProcedure)
+      (ident_def
+        (ident)
+        (kStar))
+      (formal_params
+        (qualident
+          (ident)))))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kEnd))
+      (ident)))
+    (module_footer
+      (kEnd)
+      (ident)))
+
+============================
+Forward Declared With Receiver
+============================
+
+MODULE Forward;
+  TYPE
+    T = RECORD END;
+
+  PROCEDURE^ (VAR self: T) Run*;
+
+  PROCEDURE (VAR self: T) Run*;
+  END Run;
+END Forward.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (record_type
+            (kRecord)
+            (kEnd))))))
+  (procedure_decls
+    (forward_decl
+      (kProcedure)
+      (receiver
+        (kVar)
+        (ident)
+        (ident))
+      (ident_def
+        (ident)
+        (kStar))))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (receiver
+          (kVar)
+          (ident)
+          (ident))
+        (ident_def
+          (ident)
+          (kStar)))
+      (procedure_body
+        (kEnd))
+      (ident)))
+    (module_footer
+      (kEnd)
+      (ident)))

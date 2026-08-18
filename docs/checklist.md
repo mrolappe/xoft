@@ -72,3 +72,10 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
   generated artifact, either commit the artifact or make CI regenerate it — verify by simulating
   a clean checkout (`rm -rf` the generated dir) locally, not just by having it work on a machine
   where it was already generated once.
+- **Bare `tree-sitter generate` collided with copied `src/` symlinks on a freshly forked grammar
+  dir** → on a fork, `mkdir -p gen-src` and always pass `-o gen-src` explicitly until the first
+  generate has populated it and the copied symlinks resolve.
+- **Renamed a grammar's `name` field without renaming `src/scanner.c`'s
+  `tree_sitter_<name>_external_scanner_*` symbols to match** → link failure, only caught at
+  `tree-sitter test`, not at `generate`. Rename both in the same step; a clean `generate` isn't
+  proof the rename is complete.

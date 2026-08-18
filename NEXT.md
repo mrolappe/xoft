@@ -1,79 +1,83 @@
 # Next task
 
-**M5.1 — `grammars/tree-sitter-oberon-x/grammar.js` extending the base.** Per `docs/plan.md`:
-a new toy dialect grammar, forked from the M1 base grammar, with two suggested extensions:
-`BEGIN` → `DO` (a rename, presumably of a statement-sequence delimiter) and a new
-`UNLESS Expr DO StatementSeq END` statement. Tagged **Sonnet** in `docs/plan.md` line 131 — M5
-as a whole is not one model; only M5.2 (the mapping-rule/emit path) is tagged **Opus** (line
-132), M5.3 (round-trip tests) is tagged **Haiku** (line 133). Flag this breakdown to the user
-before starting, since M4's `NEXT.md` (superseded) mis-stated M5 as uniformly Opus-tagged.
+**M5.2 — Two mapping rules + emit path: template splicing with inherited indentation.** Per
+`docs/plan.md` line 132, tagged **Opus** ("the one seam with lasting cost; deliberately not a
+Wadler/Oppen printer") — the first task in this milestone that isn't Sonnet. Flag this to the
+user before starting if the session isn't already on Opus.
 
-## What M5 is for
+## What M5.2 is for
 
-Per `docs/plan.md` line 135, M5's exit criterion is "a measured answer to 'what does one dialect
-experiment cost?'" — this milestone is itself a measurement exercise (how much work does forking
-a real dialect variant take, given M1–M4's infrastructure), not a deliverable dialect. Re-read
-`docs/plan.md`'s M5 row (lines 127–135) and the "Delegation packets" section (lines 149–159)
-before starting — M5.1 is scoped as a **grammar** task, which per that section should receive
-only "the relevant EBNF fragment from `docs/language-baseline.md`, the matching section of
-`grammar.js`, the `tree-sitter test` corpus format, and 2–3 real corpus snippets" — not the
-whole corpus report.
+Decision D7 (`docs/plan.md` line 42): Oberon-X exists as "a grammar-inheritance overlay, with two
+mapping rules and bidirectional round-trip tests — so the MVP measures the cost of a dialect
+experiment." M5.1 (done, round 35) built the overlay grammar. M5.2 is where that grammar's parsed
+tree actually gets *consumed* — this is the first place `grammars/tree-sitter-oberon-x/` needs
+`xoft-core` wiring (a second `tree_sitter::Language`, alongside the existing oberon2 one in
+`grammar.rs`), per M5.1's `NEXT.md` open question, now resolved by reaching this task.
+
+M5.3 (Haiku, not started) needs bidirectional round-trip tests — `X→2→X` and `2→X→2` — against
+golden files, which M5.2's mapping rules + emit path must make possible.
 
 ## Open questions worth raising with the user before coding
 
-- **Where does `grammars/tree-sitter-oberon-x/` come from?** M1's grammar lives in
-  `grammars/tree-sitter-oberon2/`. Nothing in this repo yet copies or forks it — check whether
-  the expectation is a fresh `tree-sitter-cli init` pointed at a copy of `tree-sitter-oberon2`'s
-  `grammar.js`/`src/scanner.c`, or some other bootstrap. Given M1's grammar took 26 rounds of
-  real corpus-driven work, forking it wholesale (rather than starting from the upstream Oberon-2
-  EBNF again) is almost certainly the intent, but confirm rather than assume.
-  Also check the sibling crate wiring in `crates/xoft-core/build.rs`/`grammar.rs`: does
-  `xoft-core` need a second `Language` (oberon-x alongside oberon2), a runtime choice between
-  them, or does M5's grammar work stay confined to `grammars/` and `tree-sitter test` only until
-  M5.2 needs to actually invoke it? `docs/plan.md`'s M5.2 note ("mapping rules + emit path")
-  implies M5.2 is where oberon-x's parsed tree gets consumed — M5.1 itself may not need any
-  `xoft-core` wiring at all. Confirm the boundary before touching `xoft-core`.
-- **`BEGIN` → `DO` — rename or coexistence?** "suggested" in `docs/plan.md` leaves open whether
-  Oberon-X drops `BEGIN` entirely (a breaking rename) or accepts both as synonyms. A breaking
-  rename is more interesting as a "what does a real dialect change cost" measurement (M5's own
-  stated purpose) since it forces every construct that uses `BEGIN` to be touched, not just one
-  new keyword added — but ask rather than assume, since it also determines whether any base
-  Oberon-2 corpus file can still be used as an Oberon-X test input.
-- **What corpus/test inputs exist for Oberon-X?** Unlike M1's real corpus, no real-world
-  Oberon-X source exists (it's a toy dialect invented for this project) — `docs/plan.md`'s M5.3
-  says "golden files in `corpus/cases/`", implying hand-written fixtures, not swept corpus files.
-  Confirm `corpus/cases/` is a new directory (doesn't exist yet) before creating it.
+- **What are the "two mapping rules," concretely?** M5.1 added two dialect features: `BEGIN`/`DO`
+  synonymy and `UNLESS Expr DO StatementSeq END`. Is one mapping rule per feature (a `DO`↔`BEGIN`
+  normalization plus an `UNLESS`↔`IF NOT ... THEN` rewrite), or some other split? `UNLESS Expr DO
+  StatementSeq END` ⟷ `IF NOT (Expr) THEN StatementSeq END` is the structurally obvious rewrite
+  for the harder of the two — confirm before assuming it's the intended target shape of the
+  Oberon-2 side, since `NOT` availability/semantics may need re-checking against
+  `docs/language-baseline.md`.
+- **Is the mapping symmetric?** `2→X` direction: any Oberon-2 source is already valid Oberon-X
+  input as-is (M5.1's synonym decision was chosen exactly so this holds), so `2→X→2` may reduce
+  to M2's existing lossless round-trip with no new mapping logic — worth confirming as the easy
+  half rather than building machinery for it. `X→2→X` is the real test of "template splicing with
+  inherited indentation": mapping `UNLESS`/`DO` down to base Oberon-2 text, then mapping back up,
+  needs to reconstruct something faithful to (though not necessarily byte-identical to, unlike
+  M2/D4's plain-serialization guarantee) the original Oberon-X source. Confirm what "round-trip"
+  means here before implementing — byte-identical, or structurally-equivalent-modulo-formatting?
+- **"Template splicing with inherited indentation," concretely?** Plan.md's phrase implies emitting
+  by locating the original source's indentation at the splice point and reusing it for inserted/
+  rewritten text, rather than an independent pretty-printer computing layout from scratch (that's
+  what "deliberately not a Wadler/Oppen printer" rules out). Confirm this reading, and whether it
+  reuses M2's `serialize.rs` token-walk machinery (leaf text + inter-leaf gaps) as its base, or is
+  a new code path.
+- **Where do the mapping rules live?** `xoft-core`'s existing `Rule`/`RuleRegistry` (`rule.rs`,
+  M2.4, currently empty — "no real rule exists until M5") is the obvious home per that module's own
+  comment. Confirm the mapping rules are `Rule` impls, not a separate mechanism.
 
 ## What's confirmed (do not re-derive)
 
-- M4 is done: `xoft corpus run` + `corpus/allowlist.toml` (26/792, 3.28%) + `.github/workflows/
-  ci.yml` (fixture-corpus CI check, `corpus/fixtures/` vendored subset of `voc`+`oberon-a`, 12
-  files). See `docs/progress/m4-corpus-runner.md` for the full M4.1+M4.2 derivation.
-- `docs/language-baseline.md` holds the normative Oberon-2 EBNF M1's grammar (and presumably
-  Oberon-X's fork) is built from.
-- `crates/xoft-core/build.rs` compiles `gen-src/parser.c` + `src/scanner.c` via `cc` directly
-  into `xoft-core`; `grammar.rs` exposes the resulting `tree_sitter::Language`. Whatever M5.1
-  needs from `xoft-core` (if anything, per the open question above) will follow this same shape.
+- M5.1 is done: `grammars/tree-sitter-oberon-x/` forked from `tree-sitter-oberon2/`, `BEGIN`/`DO`
+  synonym + `UNLESS Expr DO StatementSeq END`, 89/89 `tree-sitter test` (85 inherited + 4 new).
+  See `docs/progress/m5-oberon-x.md`. No `xoft-core`/`xoft-cli` changes yet — confined to
+  `grammars/` as scoped.
+- Two fork-specific traps already paid for, don't re-hit them when adding the second `Language` to
+  `xoft-core`: bare `tree-sitter generate` needs `-o gen-src` explicit on a fresh grammar dir
+  (`docs/errors.md` round 35), and `grammar.js`'s `name` field must match `src/scanner.c`'s
+  `tree_sitter_<name>_external_scanner_*` symbol prefix or linking fails.
+- `crates/xoft-core/build.rs` compiles `gen-src/parser.c` + `src/scanner.c` via `cc` directly for
+  oberon2; wiring a second grammar will likely mean parameterizing this over both grammar dirs
+  rather than duplicating the build script — read `build.rs`/`grammar.rs` before designing.
+- `rule.rs`'s `Rule` trait: `check(&self, tree: &Tree, text: &str) -> Vec<Diagnostic>` (M2.4,
+  round 29). Note the shape is diagnostic-producing, not tree-transforming — a mapping rule that
+  needs to *emit* Oberon-2 text is not a drop-in `Rule` impl as-is; this tension is itself worth
+  surfacing to the user rather than silently bending one concept to fit the other.
 
 ## Definition of done
 
-- The scoping questions above resolved with the user before writing `grammar.js`.
-- Model-delegation breakdown (M5.1 Sonnet / M5.2 Opus / M5.3 Haiku) flagged to the user; confirm
-  whether this round continues on Sonnet for M5.1 specifically or the user wants something else.
-- Usual end-of-round ritual: `PROGRESS.md` + `docs/progress/` (new `m5-oberon-x.md`, matching
-  the one-file-per-milestone precedent), `docs/insights.md`/`docs/errors.md`/`docs/checklist.md`
-  only if something genuinely mistake-worthy came up, `cargo test --workspace` (plus
-  `tree-sitter test` in the new grammar dir, per `docs/plan.md`'s verification block).
+- Scoping questions above resolved with the user before writing code.
+- Usual end-of-round ritual: `PROGRESS.md` + `docs/progress/m5-oberon-x.md` (append M5.2 section),
+  `docs/insights.md`/`docs/errors.md`/`docs/checklist.md` only if something genuinely
+  mistake-worthy came up, `cargo test --workspace` plus `tree-sitter test` in
+  `grammars/tree-sitter-oberon-x/`.
 
 ## State of the tree
 
-- `crates/xoft-core/`, `crates/xoft-cli/`: unchanged this round (M4.2 touched no Rust code at
-  all — `corpus_run`'s existing `--roots`/`--allowlist`/`--out` flags were the whole mechanism
-  for pointing at a second, CI-scoped corpus).
-- **New this round (M4.2, round 33):** `corpus/fixtures/` (`roots.toml`, `allowlist.toml` empty,
-  `NOTICE.md` provenance/license notes, `report.json` checked in, 100%/100%), `.github/workflows/
-  ci.yml` (first CI config in this repo).
-- `grammars/tree-sitter-oberon2/`: unchanged, still the only grammar in the repo. M5.1 is where
-  `grammars/tree-sitter-oberon-x/` first appears.
-- `cargo test --workspace`: green, unchanged counts (28 `xoft-core`, 14 `xoft-cli`) — M4.2 added
-  no tests since it's pure data + CI config, not testable Rust logic.
+- `crates/xoft-core/`, `crates/xoft-cli/`: unchanged since round 32 (M4.1) — M4.2 and M5.1 both
+  touched no Rust code. `cargo test --workspace`: 28 `xoft-core`, 14 `xoft-cli`, green.
+- `grammars/tree-sitter-oberon2/`: unchanged, still the base grammar.
+- `grammars/tree-sitter-oberon-x/`: new this round (round 35) — `grammar.js` (forked +
+  `unless_statement`/`kUnless`/`DO`-as-`BEGIN`-synonym), `test/corpus/oberon_x.txt` (4 cases),
+  `NOTICE` (updated provenance), `package.json` (renamed), `src/scanner.c` (renamed external-
+  scanner symbols). `sweep_corpus.py` dropped (real-corpus tool, not applicable). `gen-src/` is
+  local/gitignored as usual — CI will need the same `tree-sitter generate -o gen-src` treatment
+  `.github/workflows/ci.yml` already does for oberon2, once M5.2 makes `xoft-core` depend on it.

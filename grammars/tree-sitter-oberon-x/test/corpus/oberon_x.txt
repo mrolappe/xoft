@@ -1,0 +1,177 @@
+==================================
+DO As BEGIN Synonym In Procedure
+==================================
+
+MODULE M;
+  PROCEDURE P;
+  DO
+    Out.Ln;
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kDo)
+        (statement_seq
+          (statement
+            (procedure_call
+              (designator
+                (qualident
+                  (ident))
+                (selector
+                  (ident))))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+==================================
+DO As BEGIN Synonym At Module Level
+==================================
+
+MODULE M;
+DO
+  Out.Ln;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (kDo)
+  (statement_seq
+    (statement
+      (procedure_call
+        (designator
+          (qualident
+            (ident))
+          (selector
+            (ident))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+==================================
+Unless Statement
+==================================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    UNLESS x = 0 DO
+      Out.Ln;
+    END
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (unless_statement
+              (kUnless)
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (designator
+                        (qualident
+                          (ident))))))
+                (relation)
+                (simple_expression
+                  (term
+                    (factor
+                      (number
+                        (integer))))))
+              (kDo)
+              (statement_seq
+                (statement
+                  (procedure_call
+                    (designator
+                      (qualident
+                        (ident))
+                      (selector
+                        (ident))))))
+              (kEnd))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+==================================
+Unless Statement Empty Body
+==================================
+
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    UNLESS x = 0 DO
+    END
+  END P;
+END M.
+
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (statement_seq
+          (statement
+            (unless_statement
+              (kUnless)
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (designator
+                        (qualident
+                          (ident))))))
+                (relation)
+                (simple_expression
+                  (term
+                    (factor
+                      (number
+                        (integer))))))
+              (kDo)
+              (kEnd))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))

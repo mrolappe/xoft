@@ -1,0 +1,94 @@
+=====================
+Value Receiver Method
+=====================
+
+MODULE Receivers;
+  TYPE
+    T = RECORD END;
+  PROCEDURE (r: T) M*;
+  END M;
+END Receivers.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (record_type
+            (kRecord)
+            (kEnd))))))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (receiver
+          (ident)
+          (ident))
+        (ident_def
+          (ident)
+          (kStar)))
+      (procedure_body
+        (kEnd))
+      (ident)))
+    (module_footer
+      (kEnd)
+      (ident)))
+
+=========================
+VAR Receiver With Params
+=========================
+
+MODULE Receivers;
+  TYPE
+    T = RECORD END;
+  PROCEDURE (VAR r: T) M*(x: INTEGER): BOOLEAN;
+  END M;
+END Receivers.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (record_type
+            (kRecord)
+            (kEnd))))))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (receiver
+          (kVar)
+          (ident)
+          (ident))
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))
+      (procedure_body
+        (kEnd))
+      (ident)))
+    (module_footer
+      (kEnd)
+      (ident)))

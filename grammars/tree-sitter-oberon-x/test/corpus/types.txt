@@ -1,0 +1,642 @@
+======================
+Set As Array Element Type
+======================
+
+MODULE Types;
+  TYPE
+    Foo = ARRAY 8 OF SET;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (array_type
+            (kArray)
+            (length
+              (const_expression
+                (expression
+                  (simple_expression
+                    (term
+                      (factor
+                        (number
+                          (integer))))))))
+            (kOf)
+            (type
+              (qualident
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===================
+Is In Expression
+===================
+
+MODULE Types;
+  VAR x, y: INTEGER;
+BEGIN
+  IF x IS INTEGER THEN y := 1 END
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (variable_decls
+    (kVar)
+    (variable_decl
+      (ident_list
+        (ident_def
+          (ident))
+        (ident_def
+          (ident)))
+      (type
+        (qualident
+          (ident)))))
+  (kBegin)
+  (statement_seq
+    (statement
+      (if_statement
+        (kIf)
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (designator
+                  (qualident
+                    (ident))))))
+          (relation
+            (kIs))
+          (simple_expression
+            (term
+              (factor
+                (designator
+                  (qualident
+                    (ident)))))))
+        (kThen)
+        (statement_seq
+          (statement
+            (assignment
+              (designator
+                (qualident
+                  (ident)))
+              (expression
+                (simple_expression
+                  (term
+                    (factor
+                      (number
+                        (integer)))))))))
+        (kEnd))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+========================
+Open Array Formal Param
+========================
+
+MODULE Types;
+  PROCEDURE Foo(s: ARRAY OF CHAR; VAR t: ARRAY OF INTEGER);
+  BEGIN
+  END Foo;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (kArray)
+              (kOf)
+              (qualident
+                (ident))))
+          (fp_section
+            (kVar)
+            (ident)
+            (formal_type
+              (kArray)
+              (kOf)
+              (qualident
+                (ident))))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================================
+AmigaOberon Fixed-Length Array Formal Param
+===========================================
+
+MODULE Types;
+  PROCEDURE DuplicateOpenArray * (VAR from, to: ARRAY 100000H OF SYSTEM.ADDRESS);
+  BEGIN
+  END DuplicateOpenArray;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (kVar)
+            (ident)
+            (ident)
+            (formal_type
+              (kArray)
+              (length
+                (const_expression
+                  (expression
+                    (simple_expression
+                      (term
+                        (factor
+                          (number
+                            (integer))))))))
+              (kOf)
+              (qualident
+                (ident)
+                (ident))))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+Procedure Type As Field
+===========================
+
+MODULE Types;
+  TYPE
+    Callback = RECORD
+      f: PROCEDURE(s1, s2: SHORTINT): SHORTINT
+    END;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (record_type
+            (kRecord)
+            (field_list_seq
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident)))
+                (type
+                  (struct_type
+                    (procedure_type
+                      (kProcedure)
+                      (formal_params
+                        (fp_section
+                          (ident)
+                          (ident)
+                          (formal_type
+                            (qualident
+                              (ident))))
+                        (qualident
+                          (ident))))))))
+            (kEnd))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===============================
+Procedure Type As Formal Param
+===============================
+
+MODULE Types;
+  PROCEDURE Bar(f: PROCEDURE(s1, s2: SHORTINT): SHORTINT);
+  BEGIN
+  END Bar;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (procedure_type
+                (kProcedure)
+                (formal_params
+                  (fp_section
+                    (ident)
+                    (ident)
+                    (formal_type
+                      (qualident
+                        (ident))))
+                  (qualident
+                    (ident))))))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===============================
+Pointer To Length-Less Array Type
+===============================
+
+MODULE Types;
+  TYPE
+    Symbol = POINTER TO ARRAY OF CHAR;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (pointer_type
+            (kPointer)
+            (kTo)
+            (type
+              (struct_type
+                (array_type
+                  (kArray)
+                  (kOf)
+                  (type
+                    (qualident
+                      (ident)))))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+Pointer System Flag
+===========================
+
+MODULE Types;
+  TYPE
+    FramePtr* = POINTER [2] TO Frame;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident)
+        (kStar))
+      (type
+        (struct_type
+          (pointer_type
+            (kPointer)
+            (sysflag
+              (integer))
+            (kTo)
+            (type
+              (qualident
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+Record System Flag
+===========================
+
+MODULE Types;
+  TYPE
+    Label* = RECORD [2]
+      x, y: INTEGER
+    END;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident)
+        (kStar))
+      (type
+        (struct_type
+          (record_type
+            (kRecord)
+            (sysflag
+              (integer))
+            (field_list_seq
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident))
+                  (ident_def
+                    (ident)))
+                (type
+                  (qualident
+                    (ident)))))
+            (kEnd))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+AmigaOberon Struct Type
+===========================
+
+MODULE Types;
+  TYPE
+    TypDesc = STRUCT
+      typedesc: LONGINT;
+    END;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (amiga_struct_type
+            (kStruct)
+            (field_list_seq
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident)))
+                (type
+                  (qualident
+                    (ident)))))
+            (kEnd))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+AmigaOberon Empty Struct Type
+===========================
+
+MODULE Types;
+  TYPE
+    CommonNode = STRUCT END;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (amiga_struct_type
+            (kStruct)
+            (kEnd))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+AmigaOberon Struct Embedded Base Field
+===========================
+
+MODULE Types;
+  TYPE
+    Node = STRUCT (dummy: CommonNode)
+      succ : NodePtr;
+      pri  : SHORTINT;
+    END;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (amiga_struct_type
+            (kStruct)
+            (field_list
+              (ident_list
+                (ident_def
+                  (ident)))
+              (type
+                (qualident
+                  (ident))))
+            (field_list_seq
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident)))
+                (type
+                  (qualident
+                    (ident))))
+              (field_list
+                (ident_list
+                  (ident_def
+                    (ident)))
+                (type
+                  (qualident
+                    (ident)))))
+            (kEnd))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+AmigaOberon Untraced Pointer
+===========================
+
+MODULE Types;
+  TYPE
+    TypPtr = UNTRACED POINTER TO TypDesc;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident))
+      (type
+        (struct_type
+          (pointer_type
+            (kUntraced)
+            (kPointer)
+            (kTo)
+            (type
+              (qualident
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+AmigaOberon Untraced Pointer To Anonymous Struct
+===========================
+
+MODULE Types;
+  VAR
+    execBase: UNTRACED POINTER TO STRUCT
+      dummy: ARRAY 276 OF CHAR;
+    END;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (variable_decls
+    (kVar)
+    (variable_decl
+      (ident_list
+        (ident_def
+          (ident)))
+      (type
+        (struct_type
+          (pointer_type
+            (kUntraced)
+            (kPointer)
+            (kTo)
+            (type
+              (struct_type
+                (amiga_struct_type
+                  (kStruct)
+                  (field_list_seq
+                    (field_list
+                      (ident_list
+                        (ident_def
+                          (ident)))
+                      (type
+                        (struct_type
+                          (array_type
+                            (kArray)
+                            (length
+                              (const_expression
+                                (expression
+                                  (simple_expression
+                                    (term
+                                      (factor
+                                        (number
+                                          (integer))))))))
+                            (kOf)
+                            (type
+                              (qualident
+                                (ident))))))))
+                  (kEnd)))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================
+AmigaOberon BCPL-Relative Pointer
+===========================
+
+MODULE Types;
+  TYPE
+    FileLockPtr* = BPOINTER TO FileLock;
+END Types.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (type_decls
+    (kType)
+    (type_decl
+      (ident_def
+        (ident)
+        (kStar))
+      (type
+        (struct_type
+          (pointer_type
+            (kBPointer)
+            (kTo)
+            (type
+              (qualident
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))

@@ -1,0 +1,196 @@
+====
+module
+====
+
+MODULE Hello;
+END Hello.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====================
+module single import
+====================
+
+MODULE Hello;
+  IMPORT In;
+END Hello.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (import_list
+    (kImport)
+    (import
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===============================
+module single import with alias
+===============================
+
+MODULE Hello;
+  IMPORT In := IOIn;
+END Hello.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (import_list
+    (kImport)
+    (import
+      (ident)
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=====================================
+module import with re-export marker
+=====================================
+
+MODULE Hello;
+  IMPORT e * := Exec;
+END Hello.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (import_list
+    (kImport)
+    (import
+      (ident)
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=====================================
+module import with colon rename
+=====================================
+
+MODULE Hello;
+  IMPORT e: Exec;
+END Hello.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (import_list
+    (kImport)
+    (import
+      (ident)
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====================
+module system flag
+====================
+
+MODULE [2] Hello;
+END Hello.
+---
+
+(module
+  (module_header
+    (kModule)
+    (sysflag
+      (integer))
+    (ident))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====================================
+module system flag with external name
+====================================
+
+MODULE [4] Hello ["Hello.o"];
+END Hello.
+---
+
+(module
+  (module_header
+    (kModule)
+    (sysflag
+      (integer))
+    (ident)
+    (external_code_names
+      (string)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====================
+module begin close end
+====================
+
+MODULE Hello;
+VAR x: INTEGER;
+BEGIN
+  x := 1
+CLOSE
+  x := 0
+END Hello.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (variable_decls
+    (kVar)
+    (variable_decl
+      (ident_list
+        (ident_def
+          (ident)))
+      (type
+        (qualident
+          (ident)))))
+  (kBegin)
+  (statement_seq
+    (statement
+      (assignment
+        (designator
+          (qualident
+            (ident)))
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (number
+                  (integer)))))))))
+  (kClose)
+  (statement_seq
+    (statement
+      (assignment
+        (designator
+          (qualident
+            (ident)))
+        (expression
+          (simple_expression
+            (term
+              (factor
+                (number
+                  (integer)))))))))
+  (module_footer
+    (kEnd)
+    (ident)))

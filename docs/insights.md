@@ -1022,3 +1022,20 @@ legitimately falsify it. Treat such comments as a recorded belief with a known e
 worth re-checking (not just re-trusting) whenever a more complete sweep becomes possible —
 which is exactly why M4.1 asked the user rather than silently allowlisting or silently
 reopening M1 on its own judgment.
+
+## Round 35 — 2026-08-18
+
+### M5's own exit criterion ("what does a dialect experiment cost?") is being measured by M5.1 itself, not just its eventual total
+
+Of M5.1's actual work, the two new grammar rules (`unless_statement`, the `kBegin`/`kDo` choice)
+were each a few lines and correct on the first `tree-sitter generate` — no grammar-shape
+iteration at all, unlike M1's 26 rounds of corpus-driven back-and-forth. Nearly all the round's
+friction was fork *mechanics* that have nothing to do with the dialect's actual grammar: a
+dangling-symlink collision from copying round 7's `gen-src`/`src` convention without its
+generated contents, and a link failure from the generated parser and the hand-written scanner
+disagreeing on a renamed symbol prefix. Both are now one-line checklist entries (`docs/checklist.
+md`), so the *next* grammar fork (M6? Phase 2?) should be near-zero-friction — meaning M5.1's own
+elapsed cost overstates the marginal cost of a second dialect experiment once the fork recipe is
+known. Worth remembering when M5's exit criterion finally gets written up: separate "cost of the
+grammar change itself" from "one-time cost of learning to fork this repo's grammar layout," since
+only the former recurs per dialect.

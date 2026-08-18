@@ -320,3 +320,36 @@ log and guessing the fix. General lesson: when a build depends on a gitignored g
 artifact, a machine that generated it once will keep working silently while CI (or any other
 fresh checkout) breaks on the very first run; test build-from-scratch locally whenever a build
 step starts depending on something gitignored, don't wait for CI to be the first to notice.
+
+## Round 35 — 2026-08-18
+
+### Bare `tree-sitter generate` collided with the copied `src/` symlinks when forking a grammar dir
+
+Round 7's `gen-src/`-as-real-target convention (`src/` holds only `scanner.c` plus symlinks
+pointing into `gen-src/`) is set up once per grammar directory and assumed already in place —
+`tree-sitter generate` (no `-o`) writes to `src/` by default, which is fine on an *existing*
+grammar dir where `gen-src/` already has real files for the symlinks to resolve through. Forking
+`tree-sitter-oberon2/` into a brand-new `tree-sitter-oberon-x/` via `rsync` copied the symlinks
+themselves (tiny, real, tracked files, exactly as round 7 intended) but not `gen-src/`'s
+generated *contents* (gitignored, correctly excluded from the copy) — so the symlinks were
+dangling. A bare `tree-sitter generate` in the new directory then tried to create `src/tree_sitter`
+and hit `File exists (os error 17)`, since `mkdir` fails on a path that's already a symlink node
+regardless of whether the target exists.
+
+**Mitigation:** on a freshly forked grammar directory, `mkdir -p gen-src` and always pass
+`tree-sitter generate -o gen-src` explicitly, never a bare `tree-sitter generate`, until the
+first successful generate has populated `gen-src/` and the copied symlinks resolve.
+
+### Renamed a grammar's `name` field without renaming its external scanner's symbol prefix
+
+`grammar.js`'s `name: 'oberon2'` → `'oberon_x'` (needed so the fork doesn't collide with the base
+grammar's generated function name) silently broke the copied `src/scanner.c`: tree-sitter's
+generated `parser.c` calls `tree_sitter_<name>_external_scanner_*`, but the copied `scanner.c`
+still *defined* `tree_sitter_oberon2_external_scanner_*`. `tree-sitter generate` itself succeeded
+(the scanner's C source isn't inspected at generate time); the mismatch only surfaced as a link
+failure — `Undefined symbols for architecture arm64` — on the first `tree-sitter test`.
+
+**Mitigation:** whenever a grammar's `name` field changes (including a fresh fork under a new
+name), `grep tree_sitter_<old_name> src/scanner.c` and rename every match in the same step, before
+running `tree-sitter test`. A clean `generate` is not evidence the rename is complete — only a
+successful `test` (which actually links the scanner) is.

@@ -1,0 +1,799 @@
+===============
+Basic Procedure
+===============
+
+MODULE Procedures;
+  PROCEDURE Hello;
+  END Hello;
+END Procedures.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====================
+Procedure With Begin
+====================
+
+MODULE Procedures;
+  PROCEDURE Hello;
+  BEGIN
+  END Hello;
+END Procedures.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With Vector Offset
+=========================
+
+MODULE Procedures;
+  PROCEDURE BinKoeff*{base,-54}(n{2},k{3}: LONGINT): LONGINT;
+  END BinKoeff;
+END Procedures.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (vector_offset
+          (ident)
+          (integer))
+        (formal_params
+          (fp_section
+            (ident)
+            (param_offset
+              (integer))
+            (ident)
+            (param_offset
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))
+      (procedure_body
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Bodiless Procedure Heading
+=========================
+
+MODULE Cia;
+  PROCEDURE AddICRVector *{base,- 6}(icrBit{0}    : SHORTINT;
+                                     interrupt{9} : e.InterruptPtr):e.InterruptPtr;
+  PROCEDURE RemICRVector *{base,-12}(icrBit{0}    : SHORTINT;
+                                     interrupt{9} : e.InterruptPtr);
+END Cia.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (vector_offset
+          (ident)
+          (integer))
+        (formal_params
+          (fp_section
+            (ident)
+            (param_offset
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))
+          (fp_section
+            (ident)
+            (param_offset
+              (integer))
+            (formal_type
+              (qualident
+                qualifier: (ident)
+                property: (ident))))
+          (qualident
+            qualifier: (ident)
+            property: (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (vector_offset
+          (ident)
+          (integer))
+        (formal_params
+          (fp_section
+            (ident)
+            (param_offset
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))
+          (fp_section
+            (ident)
+            (param_offset
+              (integer))
+            (formal_type
+              (qualident
+                qualifier: (ident)
+                property: (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+===========================================
+Many Bodiless Procedures Before A Real Body
+===========================================
+
+MODULE ManyBodiless;
+  PROCEDURE P0* (x : REAL) : REAL;
+  PROCEDURE P1* (x : REAL) : REAL;
+  PROCEDURE P2* (x : REAL) : REAL;
+  PROCEDURE P3* (x : REAL) : REAL;
+  PROCEDURE P4* (x : REAL) : REAL;
+  PROCEDURE P5* (x : REAL) : REAL;
+  PROCEDURE P6* (x : REAL) : REAL;
+  PROCEDURE P7* (x : REAL) : REAL;
+  PROCEDURE P8* (x : REAL) : REAL;
+  PROCEDURE Close (VAR rc : LONGINT);
+  BEGIN
+  END Close;
+END ManyBodiless.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident))
+        (formal_params
+          (fp_section
+            (kVar)
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With System Flag
+=========================
+
+MODULE Classface;
+  PROCEDURE [0] InstData* (cl: i.IClassPtr): e.APTR;
+END Classface.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (sysflag
+          (integer))
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (qualident
+                qualifier: (ident)
+                property: (ident))))
+          (qualident
+            qualifier: (ident)
+            property: (ident))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With Square Vector Offset And Register Parameters
+=========================
+
+MODULE Exec;
+  PROCEDURE OpenLibrary* [base,-552] (libName [9]: ARRAY OF CHAR; version [0]: LONGINT): APTR;
+END Exec.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (square_vector_offset
+          (ident)
+          (integer))
+        (formal_params
+          (fp_section
+            (ident)
+            (reg_spec
+              (integer))
+            (formal_type
+              (kArray)
+              (kOf)
+              (qualident
+                (ident))))
+          (fp_section
+            (ident)
+            (reg_spec
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With External Code Names
+=========================
+
+MODULE Classface;
+  PROCEDURE [4] NewLabelA* ["EALabels_xNewLabel"] (cl [8]: IClassPtr; VAR msg [9]: Msg);
+END Classface.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (sysflag
+          (integer))
+        (ident_def
+          (ident)
+          (kStar))
+        (external_code_names
+          (string))
+        (formal_params
+          (fp_section
+            (ident)
+            (reg_spec
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))
+          (fp_section
+            (kVar)
+            (ident)
+            (reg_spec
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With VarArg Register Parameter
+=========================
+
+MODULE Tags;
+  PROCEDURE SetAttrsA* [base,-6] (obj [8]: Object; tags [0]..: LONGINT);
+END Tags.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (square_vector_offset
+          (ident)
+          (integer))
+        (formal_params
+          (fp_section
+            (ident)
+            (reg_spec
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))
+          (fp_section
+            (ident)
+            (reg_spec
+              (integer))
+            (formal_type
+              (qualident
+                (ident))))))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With Assignable Mark
+=========================
+
+MODULE Bullet;
+  PROCEDURE* [0] CloseLib (VAR rc : LONGINT);
+  BEGIN
+  END CloseLib;
+END Bullet.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (kStar)
+        (sysflag
+          (integer))
+        (ident_def
+          (ident))
+        (formal_params
+          (fp_section
+            (kVar)
+            (ident)
+            (formal_type
+              (qualident
+                (ident))))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With Curly External Code Name
+=========================
+
+MODULE M;
+  PROCEDURE Alert * {"Alerts.AlertDummy"} (s: ARRAY OF CHAR): BOOLEAN;
+  BEGIN
+  END Alert;
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)
+          (kStar))
+        (curly_external_code_names
+          (string))
+        (formal_params
+          (fp_section
+            (ident)
+            (formal_type
+              (kArray)
+              (kOf)
+              (qualident
+                (ident))))
+          (qualident
+            (ident))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+=========================
+Procedure With Param Offset Varargs Marker
+=========================
+
+MODULE M;
+  PROCEDURE Alert(data{9}..: SYSTEM.ADDRESS): BOOLEAN;
+  BEGIN
+  END Alert;
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident))
+        (formal_params
+          (fp_section
+            (ident)
+            (param_offset
+              (integer))
+            (formal_type
+              (qualident
+                qualifier: (ident)
+                property: (ident))))
+          (qualident
+            (ident))))
+      (procedure_body
+        (kBegin)
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====
+voc external C procedure
+====
+
+MODULE M;
+
+PROCEDURE -sprntf(s: ARRAY OF CHAR; t0: ARRAY OF CHAR): INTEGER
+  "sprintf((char*)s, (char*)t0)";
+
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (external_proc_decl
+      (kProcedure)
+      (ident_def
+        (ident))
+      (formal_params
+        (fp_section
+          (ident)
+          (formal_type
+            (kArray)
+            (kOf)
+            (qualident
+              (ident))))
+        (fp_section
+          (ident)
+          (formal_type
+            (kArray)
+            (kOf)
+            (qualident
+              (ident))))
+        (qualident
+          (ident)))
+      (string)))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====
+STJ-Oberon trap-bound procedure
+====
+
+MODULE M;
+
+PROCEDURE- Bconout*(Char, Device: INTEGER) 3,13;
+
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (definition_proc_decl
+      (procedure_heading
+        (kProcedure)
+        (kMinus)
+        (ident_def
+          (ident)
+          (kStar))
+        (formal_params
+          (fp_section
+            (ident)
+            (ident)
+            (formal_type
+              (qualident
+                (ident)))))
+        (trap_offset
+          (integer)
+          (integer)))))
+  (module_footer
+    (kEnd)
+    (ident)))
+
+====
+STJ-Oberon assignable nested procedure
+====
+
+MODULE M;
+
+PROCEDURE Outer;
+  PROCEDURE~ Inner(e: Element);
+  BEGIN
+    e.proc
+  END Inner;
+BEGIN
+  list.Do(Inner)
+END Outer;
+
+END M.
+---
+
+(module
+  (module_header
+    (kModule)
+    (ident))
+  (procedure_decls
+    (procedure_decl
+      (procedure_heading
+        (kProcedure)
+        (ident_def
+          (ident)))
+      (procedure_body
+        (procedure_decl
+          (procedure_heading
+            (kProcedure)
+            (ident_def
+              (ident))
+            (formal_params
+              (fp_section
+                (ident)
+                (formal_type
+                  (qualident
+                    (ident))))))
+          (procedure_body
+            (kBegin)
+            (statement_seq
+              (statement
+                (procedure_call
+                  (designator
+                    (qualident
+                      (ident))
+                    (selector
+                      (ident))))))
+            (kEnd))
+          (ident))
+        (kBegin)
+        (statement_seq
+          (statement
+            (procedure_call
+              (designator
+                (qualident
+                  (ident))
+                (selector
+                  (ident))
+                (actual_params
+                  (expression_list
+                    (expression
+                      (simple_expression
+                        (term
+                          (factor
+                            (designator
+                              (qualident
+                                (ident)))))))))))))
+        (kEnd))
+      (ident)))
+  (module_footer
+    (kEnd)
+    (ident)))
