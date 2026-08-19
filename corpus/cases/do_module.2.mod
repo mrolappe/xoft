@@ -1,0 +1,4 @@
+MODULE M;
+BEGIN
+  Out.Ln;
+END M.

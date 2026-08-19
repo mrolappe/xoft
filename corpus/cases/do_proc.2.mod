@@ -1,0 +1,6 @@
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    Out.Ln;
+  END P;
+END M.

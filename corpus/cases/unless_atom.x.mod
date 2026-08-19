@@ -1,0 +1,6 @@
+MODULE M;
+BEGIN
+  UNLESS ok DO
+    Out.Ln;
+  END
+END M.

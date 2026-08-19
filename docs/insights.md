@@ -1083,3 +1083,27 @@ still exists in exactly one place and both callers are proven against it by M2's
 Worth remembering the shape: when a new consumer needs "the same traversal but with a hook,"
 parameterizing the existing traversal beats a parallel one, and the tell is that the old function
 survives as a trivial default argument.
+
+## Round 37 — 2026-08-19
+
+### One boolean, derived from an existing distinction, replaced a third golden file per case
+
+M5.3's golden-file table needed to express four different expected outputs per fixture (`X→2`,
+`2→X`, `2→X→2`, `X→2→X`) across two groups whose `2→X` and `X→2→X` answers differ (Rule B reaches
+back to the `.x.mod` content; Rule A reaches the `.2.mod` content, since `BEGIN` is already valid
+Oberon-X and Rule A never fires in the 2→X direction). The instinct was a third file per case
+holding the "reached on the way back up" text. Unnecessary: that value is just the `.x.mod`
+content for Rule B and the `.2.mod` content for Rule A, i.e. a function of the same `lossy`
+distinction round 36 already named. One `lossy: bool` field on the `Case` struct, and all four
+assertions derive their expected value from it — no new file, no new concept, just naming what
+was already implied by "additive vs. alias" and computing from there.
+
+### A file-driven suite promoting fully-implemented behavior has no red phase, and that's fine
+
+M5.3's fixtures are byte-identical copies of M5.2's unit-test `const` strings; the code under
+test (`to_oberon2`/`to_oberon_x`) shipped a round earlier. The integration test passed on its
+first run — no failing state to see. TDD's red-green cycle governs *production* code; a test
+suite whose entire purpose is promoting existing, already-red/green-verified behavior to a
+different (file-driven, I/O-backed) consumer is not skipping TDD, it's outside its scope. Worth
+naming so a future round doesn't manufacture an artificial red phase (e.g. temporarily breaking
+`mapping.rs`) just to satisfy the letter of the discipline.

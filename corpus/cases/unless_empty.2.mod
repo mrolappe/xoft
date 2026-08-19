@@ -1,0 +1,7 @@
+MODULE M;
+  PROCEDURE P;
+  BEGIN
+    IF ~(x = 0) THEN
+    END
+  END P;
+END M.
