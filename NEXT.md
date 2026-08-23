@@ -1,110 +1,81 @@
 # Next task
 
-**M6.2 — Vite + Monaco `DiffEditor` frontend and controls.** Tagged **Haiku** in `docs/plan.md`
-line 142, on the premise that it "receives a fully specified layout" rather than inventing one.
-That layout does not exist yet anywhere in this repo — writing it (or getting it from the user)
-is real judgment work and belongs in *this* planning step, before the task is handed off, not
-inside the Haiku task itself. See "Real decisions to make" below.
+**M6.3 — `web-tree-sitter` highlighting, `ERROR` nodes marked, clickable diagnostics.** Tagged
+**Sonnet** in `docs/plan.md` line 143 ("semantic-tokens provider, not Monarch").
 
-## What M6.1 already built (reuse, don't reimplement)
+## What M6.2 already built (reuse, don't reimplement)
 
-`crates/xoft-testbed/` (new workspace member, Rust/Tauri backend) exposes three
-`#[tauri::command]`s over IPC — see `docs/progress/m6-testbed.md` for the full round writeup:
+`testbed-ui/` is now a real Vite + TypeScript app (`crates/xoft-testbed/` unchanged backend
+except one new command) — see `docs/progress/m6-testbed.md`'s M6.2 section for the full round
+writeup:
 
-- **`list_corpus(rootsToml: string) -> Manifest`** — the command's own argument name is
-  camelCase (Tauri's default convention for `#[tauri::command]` parameters), but the return
-  value reuses `xoft_cli::manifest::Manifest` verbatim, whose fields are plain `#[derive(Serialize)]`
-  with no `rename_all` — so the JSON that comes back is **snake_case**: `{ roots:
-  RootSummary[], files: Entry[] }`, `Entry` is `{ root, path, bytes, sha256, line_endings,
-  encoding, has_tabs }`. Deliberate, not an oversight: `Manifest`/`Entry`/`RootSummary` are the
-  same types that produce the checked-in `corpus/manifest.json`/`reports/corpus-report.json`,
-  so renaming their fields for the testbed's benefit would be a breaking change to those
-  committed artifacts and to CI's `git diff --exit-code reports/` check — out of scope for a
-  Tauri command that just reuses the type as-is.
-- **`roundtrip_check(filename: string, raw: number[]) -> RoundtripResult`** — `raw` is the
-  file's raw bytes as a plain JS array (Tauri deserializes it into `Vec<u8>`).
-  `RoundtripResult` (new in M6.1, `commands.rs`) is also plain-derived, so also
-  **snake_case**: `{ parse_ok, round_trip_ok, diagnostics }`. `Diagnostic` (`xoft_core::diagnostic`,
-  gained `Serialize` this round) is `{ start_byte, end_byte, message }` — byte offsets into
-  the *input* text, not line/column, and bytes not UTF-16 code units (see decision 2 below).
-- **`transpile(direction: "oberon-x-to-oberon2" | "oberon2-to-oberon-x", text: string) ->
-  TranspileResult`** — `TranspileResult` (new in M6.1) is `{ output: string, diagnostics:
-  Diagnostic[] }`, same snake_case `Diagnostic` shape. This is the Oberon-X↔Oberon-2 dialect
-  mapping (`xoft_core::mapping`), confirmed with the user in M6.1 — **not** the CLI's `xoft
-  transpile` (check + lossless round-trip). This is what should drive the `DiffEditor`: left
-  pane = input, right pane = `output`.
-- Every field above is snake_case in the actual JSON (verified empirically this round, not
-  assumed) — M6.2's TS types should match that rather than guessing camelCase. Command
-  *argument* names (`rootsToml`, `filename`, `raw`, `direction`, `text`) are the one place
-  Tauri does auto-convert to camelCase; `crates/xoft-testbed/src/commands.rs` and
-  `crates/xoft-testbed/tests/commands.rs` have the exact shapes either way.
-- `testbed-ui/index.html` is the current placeholder — a single static page, no bundler, three
-  raw `invoke()` calls wired to buttons. M6.2 replaces this with the real Vite app; nothing in
-  it is worth preserving except as a reference for the exact `invoke()` call shapes.
-- `crates/xoft-testbed/tauri.conf.json`: `build.frontendDist` currently points straight at
-  `../../testbed-ui` (the static file, no build step). Once Vite is introduced this almost
-  certainly needs to change to `../../testbed-ui/dist` (or wherever Vite's `outDir` is
-  configured to write) for `tauri build`, plus a `build.devUrl` (e.g.
-  `http://localhost:1420`) and `build.beforeDevCommand`/`beforeBuildCommand` (`npm run dev` /
-  `npm run build`, run from `testbed-ui/`) for `cargo tauri dev` to proxy to Vite's dev server
-  instead of serving the static file directly. This is exactly the kind of "fully specified"
-  detail M6.2 needs handed to it rather than deciding itself.
-- `crates/xoft-testbed/capabilities/default.json` currently just has `"core:default"`. No
-  Tauri fs/shell/dialog plugins are wired up (M6.1 didn't need any — the three commands are
-  plain app commands, not plugin-backed), so M6.2 shouldn't need capability changes unless the
-  frontend needs to trigger a native "open file" dialog rather than pasting text into a
-  textarea.
+- **`src/main.ts`** wires one `monaco.editor.createDiffEditor` (`diffEditor`, module-scope) as
+  both the editable source pane (`originalModel`) and the diff view (`modifiedModel`, holds
+  `transpile`'s `output`, read-only). Diagnostics render as a plain `<ul id="diagnostics">` fed
+  by `TranspileResult.diagnostics` inside `renderDiagnostics()`. M6.3's "clickable diagnostics"
+  and "`ERROR` nodes marked" both extend this same file — `renderDiagnostics` is the natural
+  place to add click handlers, and the DiffEditor's `originalModel`/Monaco's decoration API
+  (`monaco.editor.createDecorationsCollection` or `IModelDeltaDecoration`) is how `ERROR` spans
+  would get marked.
+- **`Diagnostic.start_byte`/`end_byte` are still raw byte offsets**, not Monaco
+  `{lineNumber, column}` and not JS string indices (UTF-16 code units) — M6.2 deliberately
+  deferred this conversion (decision 2 from the M6.2 planning round). This is now M6.3's
+  problem to solve: `xoft_core::codec::Document` already maps each byte to one `char`
+  (D3's bijection), so a byte offset → Monaco position conversion needs that codec, not a
+  naive `text.slice(byteOffset)`. Decide whether the conversion happens in Rust (a new command
+  or a widened `Diagnostic`) or in TS (shipping enough of the byte↔char mapping to the
+  frontend) — this is exactly the kind of thing to confirm with the user before coding, per this
+  project's "ambiguous syntax, ask" rule (applies to design ambiguity too, not just grammar).
+- **`web-tree-sitter`** (the WASM build of tree-sitter, for in-browser parsing) is not wired up
+  anywhere yet — M6.2 never parses in the frontend at all, it only calls the three/four backend
+  commands. M6.3 is the first round that needs a `.wasm` grammar artifact
+  (`tree-sitter build --wasm` on `grammars/tree-sitter-oberon2/` and/or
+  `tree-sitter-oberon-x/`) and a way to load it into the Vite app (likely another `?url`-style
+  Vite asset import, or copying into `public/`). No existing precedent in this repo for shipping
+  a `.wasm` asset through Vite — expect this to need its own small investigation, not just
+  "add the npm package."
+- **Backend security boundary, already closed**: `list_corpus`/`read_corpus_file` no longer
+  accept `roots_toml` over IPC at all (`lib.rs`'s wrappers read `corpus/roots.toml` from disk
+  themselves). Don't reintroduce a `roots_toml` parameter on any new M6.3 command without
+  re-reading `docs/insights.md` round 39 first — the lesson there (a new command mirroring an
+  existing parameter shape inherits that shape's trust boundary, not just its convenience)
+  applies directly if M6.3 adds another IPC command.
+- `cargo tauri dev` still hasn't been verified in a real window in this environment (no display
+  server) — M6.1 and M6.2 both flagged this. Worth doing on a machine with a display before or
+  during M6.3, since M6.3 is the first round that would visibly show `ERROR`-node highlighting
+  and click-to-diagnostic behavior — those are much harder to verify by reading code than a
+  plain DiffEditor.
 
 ## Real decisions to make before coding
 
-`docs/plan.md` line 142 only says "Vite + Monaco `DiffEditor` frontend and controls." It does
-not specify:
+`docs/plan.md` line 143 only says "`web-tree-sitter` highlighting, `ERROR` nodes marked,
+clickable diagnostics." Likely open questions, not yet resolved with the user:
 
-1. **Layout.** How many panes, and mapped to which command? A plausible minimal shape: one
-   source textarea/editor pane, a direction toggle (`oberon-x-to-oberon2` /
-   `oberon2-to-oberon-x`), a `DiffEditor` showing input vs. `transpile`'s `output`, and a
-   separate diagnostics panel/list fed by `roundtrip_check` (and/or `transpile`'s own
-   `diagnostics`) — but this is a guess, not a spec. `list_corpus`'s role in the layout is
-   also unclear: a file picker sourced from a corpus manifest, or is it out of scope for the
-   diff view entirely (a separate tab/panel)?
-2. **Diagnostics presentation.** `Diagnostic.startByte`/`endByte` are byte offsets, not
-   line/column. Monaco wants `{ lineNumber, column }` or a model offset (UTF-16 code units,
-   not bytes — the codec in `xoft_core::codec::Document` maps each *byte* to one `char`, so
-   for any file with bytes ≥ 0x80 a byte offset and a JS string index diverge). Decide the
-   conversion approach (and whether it's even needed for M6.2, or diagnostics render as a
-   plain list with the offending byte range as text, deferring inline squiggles to M6.3, which
-   is explicitly scoped for "clickable diagnostics").
-3. **`list_corpus`'s `rootsToml` input.** Does the UI let the user type/paste TOML, browse to
-   a `roots.toml` file (needs a native file dialog — a new Tauri capability), or is it wired
-   to this machine's `corpus/roots.toml` by a hardcoded relative path? The last is simplest
-   but reintroduces the "absolute path" concern `corpus/roots.toml` was designed to avoid
-   (D8's "the only file holding absolute paths").
-
-Once these are pinned down (ask the user rather than guessing — same rule M6.1 followed), M6.2
-really can be a fully-specified, Haiku-sized task: exact component tree, exact Tauri command
-calls, exact styling (or none).
+1. **Highlighting scope**: full syntax highlighting (a Monaco semantic-tokens provider driving
+   `web-tree-sitter`'s parse tree, per the plan's own "semantic-tokens provider, not Monarch"
+   note) for both grammars (`tree-sitter-oberon2`, `tree-sitter-oberon-x`), or just enough to
+   mark `ERROR` node spans distinctly? These could be two separate, independently-shippable
+   pieces of work.
+2. **Byte offset → Monaco position conversion** (carried over from M6.2, see above): where does
+   it live, Rust or TS?
+3. **Click behavior**: does clicking a diagnostic in the list jump the editor's cursor/selection
+   to that span (needs the conversion above either way), or does it also need reverse
+   navigation (clicking a squiggle in the editor highlights the matching list entry)?
+4. **`.wasm` asset delivery**: how does the grammar's compiled WASM get from
+   `grammars/tree-sitter-oberon2/` into something Vite serves — build step, checked-in artifact,
+   or generated at `npm run build` time alongside the existing `tree-sitter generate` CI step?
 
 ## Not in scope
 
-M6.3's `web-tree-sitter` highlighting and clickable diagnostics, CI wiring for `xoft-testbed`
-(deferred in M6.1, still deferred), M7.
+CI wiring for `xoft-testbed` (deferred twice now, M6.1 and M6.2); M7.
 
 ## State of the tree
 
-- `cargo test --workspace` green: `xoft-core` 38, `xoft-cli` 15, `xoft-testbed` 5 (new this
-  round).
-- `tree-sitter test` green in both grammar dirs (85 + 89), unchanged by M6.1.
-- `cargo build -p xoft-testbed` succeeds; no `cargo tauri dev` verification was possible in
-  this environment (no display server) — see `docs/progress/m6-testbed.md`'s "Not verified"
-  note. Worth a real `cargo tauri dev` smoke test on a machine with a display before or during
-  M6.2, since M6.2 is the first round that will actually exercise the JS↔Rust IPC boundary
-  from real (not hand-typed) frontend code.
-- One security-review finding from M6.1 is **acknowledged, not fixed**: `list_corpus` walks
-  any filesystem path the webview supplies, with no scoping. Still fine today (static,
-  first-party `testbed-ui/index.html`), but M6.2 is exactly the round where this stops being
-  hypothetical — worth resolving decision 3 above with this in mind, and revisiting whether
-  `list_corpus` needs a capability/allowlist restriction as part of M6.2 rather than leaving it
-  deferred again.
-- Node/npm (`npm`, `node`) and the Tauri CLI (`cargo tauri`) are already installed on this
-  machine (confirmed during M6.1), but `testbed-ui/` has no `package.json` yet — M6.2 starts
-  the Vite/npm tooling from nothing, same way M6.1 started Tauri/Rust tooling from nothing.
+- `cargo test --workspace` green: `xoft-core` 38, `xoft-cli` 15, `xoft-testbed` 8.
+- `cargo clippy --workspace --all-targets` clean.
+- `testbed-ui`: `npx tsc --noEmit` clean, `npm run build` (Vite) succeeds. `npm install` has been
+  run in `testbed-ui/` on this machine — `node_modules/`/`dist/` both gitignored (added to
+  `.gitignore` this round).
+- `tree-sitter test` unchanged by M6.2 (85 + 89, untouched this round).
+- Not verified: `cargo tauri dev` in a real window (no display server here, same limitation
+  since M6.1).

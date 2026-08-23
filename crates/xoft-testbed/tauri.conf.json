@@ -4,7 +4,16 @@
   "version": "0.1.0",
   "identifier": "dev.xoft.testbed",
   "build": {
-    "frontendDist": "../../testbed-ui"
+    "frontendDist": "../../testbed-ui/dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": {
+      "script": "npm run dev",
+      "cwd": "../../testbed-ui"
+    },
+    "beforeBuildCommand": {
+      "script": "npm run build",
+      "cwd": "../../testbed-ui"
+    }
   },
   "app": {
     "withGlobalTauri": true,

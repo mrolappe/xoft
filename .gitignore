@@ -1,5 +1,6 @@
 /target
 node_modules/
+testbed-ui/dist/
 *.wasm
 .DS_Store
 .codegraph/

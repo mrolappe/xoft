@@ -84,6 +84,13 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
   `#[derive(Serialize)]` says (no auto-rename) — confirm each command's actual JSON with a
   throwaway serialization test before writing frontend code or docs against it, don't assume
   the same casing rule applies to both sides of the boundary.
+- **Guessed `tauri.conf.json`'s object-form hook command field as `command` instead of `script`**
+  → don't guess Tauri config field names from what reads naturally; confirm against the schema or
+  a `cargo build` before trusting a JSON shape that merely parses.
+- **A new IPC command mirrored an existing command's parameter shape and inherited its
+  already-acknowledged trust-boundary gap** → when a new command's design is justified by
+  "mirrors an existing pattern," check whether that pattern has an open security caveat before
+  copying its parameter shape.
 - **Nearly built a symmetric reverse for a mapping rule whose forward direction was many-to-one
   (`BEGIN`/`DO` synonyms), chasing a byte-identical round-trip that cannot exist** → before
   implementing any mapping rule, check injectivity first: if two distinct inputs collapse to one

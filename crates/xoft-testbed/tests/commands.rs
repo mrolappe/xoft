@@ -72,3 +72,41 @@ fn list_corpus_walks_the_roots_given_in_toml_content() {
     assert_eq!(manifest.roots[0].alias, "cases");
     assert!(manifest.files.iter().any(|e| e.path == "unless_body.x.mod"));
 }
+
+fn cases_roots_toml() -> String {
+    format!(
+        "[[root]]\nalias = \"cases\"\npath = \"{}\"\norigin = \"local\"\nlicense = \"MIT\"\n",
+        repo_root().join("corpus/cases").display()
+    )
+}
+
+#[test]
+fn read_corpus_file_returns_the_bytes_of_a_file_under_the_root() {
+    let roots_toml = cases_roots_toml();
+    let expected = read("corpus/cases/unless_body.x.mod");
+
+    let bytes = commands::read_corpus_file(&roots_toml, "cases", "unless_body.x.mod")
+        .expect("file exists under the root");
+
+    assert_eq!(bytes, expected);
+}
+
+#[test]
+fn read_corpus_file_rejects_a_path_that_escapes_the_root() {
+    let roots_toml = cases_roots_toml();
+
+    let err = commands::read_corpus_file(&roots_toml, "cases", "../../Cargo.toml")
+        .expect_err("path traversal outside the root must be rejected");
+
+    assert!(err.contains("escapes"), "unexpected error message: {err}");
+}
+
+#[test]
+fn read_corpus_file_rejects_an_unknown_root_alias() {
+    let roots_toml = cases_roots_toml();
+
+    let err = commands::read_corpus_file(&roots_toml, "not-a-real-alias", "unless_body.x.mod")
+        .expect_err("unknown root alias must be rejected");
+
+    assert!(err.contains("not-a-real-alias"), "unexpected error message: {err}");
+}

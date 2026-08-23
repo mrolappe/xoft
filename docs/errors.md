@@ -399,3 +399,21 @@ docs were finalized — not by reasoning about the macro's behavior from memory.
 both sides of a serialization boundary just because the framework auto-converts one side; check
 the other side's actual JSON with a small serialization test before writing frontend code or
 handoff docs against it.
+
+## Round 39 — 2026-08-23
+
+### `tauri.conf.json`'s object-form hook commands use `script`, not `command`
+
+Adding `beforeDevCommand`/`beforeBuildCommand` as `{ "command": "npm run dev", "cwd":
+"../../testbed-ui" }` (the field name that reads most naturally in English) built fine at the
+JSON level but failed at `cargo build`'s build script with `data did not match any variant of
+untagged enum BeforeDevCommand` — Tauri v2's schema names the field `script`, not `command`, for
+the object form of a hook command. The plain-string form (`"beforeDevCommand": "npm run dev"`)
+would have worked without this trap; the object form was only needed here to add `cwd` (the
+frontend lives at `testbed-ui/`, not next to `tauri.conf.json`).
+
+**Mitigation:** when Tauri config adds a nested object for a hook/command field, don't guess the
+key name from what reads naturally — the build-script error names the exact expected variant
+shape (`untagged enum BeforeDevCommand`) but not its field names; confirm against
+`https://schema.tauri.app/config/2` or by testing the guess with `cargo build` immediately
+rather than assuming it's right because the JSON parses.

@@ -42,6 +42,34 @@ pub fn list_corpus(roots_toml: &str) -> anyhow::Result<Manifest> {
     manifest::build(&config.root)
 }
 
+/// Reads one corpus file's raw bytes by `(root alias, relative path)`, as reported by
+/// `list_corpus`'s own `Entry.root`/`Entry.path`. `roots_toml` is parsed the same way
+/// `list_corpus` parses it -- same bundled string, one source of truth for where the corpus
+/// lives.
+///
+/// Output sink / injection class: this turns a caller-supplied `(root, path)` pair into a
+/// filesystem read -- path traversal (`path` escaping the resolved root via `..`) is the
+/// relevant risk. Mitigated by canonicalizing both the root's base directory and the joined
+/// target and rejecting unless the target still starts with the base.
+pub fn read_corpus_file(roots_toml: &str, root: &str, path: &str) -> Result<Vec<u8>, String> {
+    let config: RootsConfig = toml::from_str(roots_toml).map_err(|e| e.to_string())?;
+    let base = config
+        .root
+        .iter()
+        .find(|r| r.alias == root)
+        .ok_or_else(|| format!("unknown root alias: {root}"))?
+        .path
+        .clone();
+
+    let base = base.canonicalize().map_err(|e| e.to_string())?;
+    let target = base.join(path).canonicalize().map_err(|e| e.to_string())?;
+    if !target.starts_with(&base) {
+        return Err(format!("path escapes root {root}: {path}"));
+    }
+
+    std::fs::read(&target).map_err(|e| e.to_string())
+}
+
 /// Mirrors `xoft-cli corpus run`'s outcome computation (`corpus_run.rs`): `parse_ok` is zero
 /// diagnostics, `round_trip_ok` is the serializer's output matching the input bytes exactly,
 /// both derived from `transpile_source` rather than reimplemented here.

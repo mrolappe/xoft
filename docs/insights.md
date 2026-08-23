@@ -1137,3 +1137,33 @@ old name (`Cargo.toml`'s `[package].name`/`[lib].name`, `main.rs`'s `app_lib::ru
 knowing before the *next* `cargo tauri init` in this repo (M6.2's frontend, if it ever needs its
 own scaffold step): the rename is mechanical but has to happen before anything else references
 the generated names, not after.
+
+## Round 39 — 2026-08-23
+
+### A new IPC command that mirrors an existing command's parameter shape inherits that command's already-acknowledged trust-boundary gap, not just its convenience
+
+M6.2's `read_corpus_file` was designed (per the approved plan) to take `roots_toml: &str` as a
+parameter, deliberately "mirroring `list_corpus`'s existing pattern... same bundled string
+reused for both calls." That mirroring was meant purely as a testability/consistency win, but it
+silently reproduced M6.1's acknowledged, not-yet-fixed finding on the *new* command too: at the
+`#[tauri::command]` boundary, both commands accepted whatever `roots_toml` text the IPC caller
+supplied, so a compromised webview could still name arbitrary filesystem roots — the frontend's
+switch to a build-time-bundled `corpus/roots.toml` (closing the finding for the *default* code
+path) didn't change what the Rust command itself was willing to accept from any caller.
+Caught by treating "does this new command's design closes the round's stated security decision"
+as its own question during the security-review pass, not by assuming a pattern-matched design
+was safe because the thing it was patterned on had already been discussed.
+
+The actual fix separated two things that had been living in one signature: `commands::list_corpus`/
+`read_corpus_file` (the plain, Tauri-free, *unit-tested* functions) correctly keep `roots_toml`
+as a parameter — that's what lets them be tested against synthetic fixtures without touching the
+real machine-local corpus. The `#[tauri::command]` wrappers in `lib.rs` — the actual IPC-facing
+trust boundary — now read `corpus/roots.toml` from disk themselves and no longer expose
+`roots_toml` as a caller-suppliable argument at all. Testability and trust-boundary enforcement
+turned out to want the boundary drawn in two different places in the same file, not one.
+
+**General form:** when a new IPC command's design is justified by "mirrors an existing command's
+pattern," check whether the existing pattern has any open/acknowledged security caveat before
+copying its parameter shape — matching the pattern can mean matching the caveat, and a plan
+review that only checks "is this internally consistent with the existing code" won't surface
+that on its own.
