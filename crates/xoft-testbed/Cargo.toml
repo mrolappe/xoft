@@ -1,0 +1,27 @@
+[package]
+name = "xoft-testbed"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Tauri testbed for xoft-core (M6)"
+rust-version = "1.77.2"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "xoft_testbed_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3" }
+
+[dependencies]
+xoft-core = { workspace = true }
+xoft-cli = { path = "../xoft-cli" }
+tree-sitter = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = "0.9"
+anyhow = "1"
+tauri = { version = "2.11.3" }

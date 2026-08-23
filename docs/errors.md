@@ -380,3 +380,22 @@ additive Rule B, up-to-normalization for the alias Rule A) instead of building m
 makes the asymmetry harder to see. A given decision that asserts a property is *achievable* is
 still a claim to check, not an instruction — especially when its supporting argument only walks
 through one of the two rules it covers.
+
+## Round 38 — 2026-08-23
+
+### Assumed Tauri auto-camelCases command JSON uniformly, caught before it reached NEXT.md
+
+While writing M6.2's handoff notes, the first draft described every command's return type —
+`Manifest`, `RoundtripResult`, `TranspileResult`, `Diagnostic` — as camelCase, by analogy with
+Tauri's well-known behavior of auto-converting `#[tauri::command]` *argument* names to camelCase.
+That analogy doesn't hold: argument-name conversion is a `tauri-macros` feature of the command
+wrapper itself, but a command's *return value* is serialized by plain `serde_json::to_value`
+against whatever `#[derive(Serialize)]` the return type actually has — and none of these four
+types carry `rename_all`, so the real JSON is snake_case throughout. Caught by writing a
+throwaway test that serialized `Diagnostic`/`RoundtripResult` and printing the output, before the
+docs were finalized — not by reasoning about the macro's behavior from memory.
+
+**Mitigation:** added to `docs/checklist.md`. Don't assume the same casing convention holds on
+both sides of a serialization boundary just because the framework auto-converts one side; check
+the other side's actual JSON with a small serialization test before writing frontend code or
+handoff docs against it.

@@ -5,9 +5,10 @@
 //! isn't in the table; the table starts small and is expected to grow once M3.3's
 //! broken-source fixtures surface more real ERROR contexts.
 
+use serde::Serialize;
 use tree_sitter::{Node, Tree};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Diagnostic {
     pub start_byte: usize,
     pub end_byte: usize,

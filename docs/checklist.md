@@ -79,6 +79,11 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
   `tree_sitter_<name>_external_scanner_*` symbols to match** → link failure, only caught at
   `tree-sitter test`, not at `generate`. Rename both in the same step; a clean `generate` isn't
   proof the rename is complete.
+- **Assumed a Tauri command's JSON casing without checking** → `#[tauri::command]` *argument*
+  names auto-convert to camelCase, but a command's *return type* keeps whatever its own
+  `#[derive(Serialize)]` says (no auto-rename) — confirm each command's actual JSON with a
+  throwaway serialization test before writing frontend code or docs against it, don't assume
+  the same casing rule applies to both sides of the boundary.
 - **Nearly built a symmetric reverse for a mapping rule whose forward direction was many-to-one
   (`BEGIN`/`DO` synonyms), chasing a byte-identical round-trip that cannot exist** → before
   implementing any mapping rule, check injectivity first: if two distinct inputs collapse to one

@@ -1107,3 +1107,33 @@ suite whose entire purpose is promoting existing, already-red/green-verified beh
 different (file-driven, I/O-backed) consumer is not skipping TDD, it's outside its scope. Worth
 naming so a future round doesn't manufacture an artificial red phase (e.g. temporarily breaking
 `mapping.rs`) just to satisfy the letter of the discipline.
+
+## Round 38 — 2026-08-23
+
+### An IPC command is an injection-relevant sink even when it only ever "reads files"
+
+`list_corpus` takes a `roots.toml`'s *content* from the webview and hands the paths inside it
+straight to `WalkDir`. Nothing here executes a shell command or renders HTML, so it doesn't look
+like the kind of thing CLAUDE.md's "name the output sink and injection class" rule is about — but
+the sink is real: it's the local filesystem, and the "untrusted data" is whatever the webview
+process sends over IPC, which Tauri's own threat model treats as a lower-trust boundary than the
+Rust backend, precisely because a future frontend dependency or a loaded remote resource could
+run script there that the backend never sees coming. `xoft_cli::manifest::build` doing this same
+walk for the CLI is not a vulnerability — a user runs it against a `roots.toml` they wrote,
+there's no boundary crossing. Wiring the *identical* function up to `#[tauri::command]` changes
+who gets to supply the path, and that change is the thing worth reviewing, not the function
+itself. General form: porting an existing, already-trusted function to a new caller can move it
+across a trust boundary without changing a line of its own code — review the new caller's trust
+level, not just whether the function's logic is already tested and correct.
+
+### `cargo tauri init` hardcodes its output directory name
+
+`-d <dir>` picks *where* to scaffold, but the scaffolded Rust crate is always created as
+`<dir>/src-tauri` — there's no flag to name that subdirectory anything else. Getting the crate to
+live at `crates/xoft-testbed/` (this repo's `crates/<name>/` convention, not Tauri's own
+`<project>/src-tauri` convention) meant running `-d crates` and renaming `crates/src-tauri` →
+`crates/xoft-testbed` immediately after, then fixing every place the scaffold had baked in the
+old name (`Cargo.toml`'s `[package].name`/`[lib].name`, `main.rs`'s `app_lib::run()` call). Worth
+knowing before the *next* `cargo tauri init` in this repo (M6.2's frontend, if it ever needs its
+own scaffold step): the rename is mechanical but has to happen before anything else references
+the generated names, not after.
