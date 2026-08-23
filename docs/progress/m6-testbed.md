@@ -267,6 +267,41 @@ click-to-select-diagnostic behavior have not been exercised in a real browser/we
 `tsc`/`vite build`/a standalone Node probe of the parsing+query layer. Worth a manual pass on a
 machine with a display before trusting the interactive pieces beyond what's proven here.
 
-**M6 declared done** (M6.1 + M6.2 + M6.3 all complete). Next is M7 (Opus-tagged in
+### Addendum — manual `cargo tauri dev` pass, partial (2026-08-23, same day)
+
+The "no display server" limitation above is **wrong for this machine** (this repo's usual dev
+machine — Apple M2 Max, real built-in Retina display) and should not be repeated in a future
+round without first just trying `cargo tauri dev` here. Confirmed by actually launching it:
+
+- Real window opens (`xoft-testbed` shows as a visible process via `osascript`'s System Events
+  process list).
+- Corpus sidebar populates with real files from `amiga-oberon-31`.
+- Clicking a corpus file loads its real content into the editor.
+- A transpile ran and produced diff output in the modified pane.
+
+**Still not confirmed** (the session ended — user closed the app — before this was checked
+carefully): whether the semantic-token coloring actually renders any color at all. One early
+screenshot, before any interaction, showed the sample source (`MODULE`/`BEGIN`/`UNLESS`/`DO`/
+`END`) in plain black text with no visible keyword/type/string coloring — either the provider
+isn't attaching, the theme isn't applying the legend's token types, or the screenshot simply
+predates the semantic-tokens request completing (Monaco computes them asynchronously after the
+model is set). Also unconfirmed: click-to-jump (list → editor) and click-to-select (editor →
+list) — attempts to drive these via `osascript ... click at {x,y}` used the wrong coordinate
+scaling (the Retina-pixel multiplier the screenshot tool reports, instead of that multiplier
+halved again for logical points, which is what `osascript`'s `click at` expects on a 2x display)
+and landed on the wrong UI elements before the pass was abandoned.
+
+**To resume this check**: launch `cargo tauri dev` from the repo root, load a file with real
+keyword/type/string content (not just the `UNLESS` sample), and look directly at whether tokens
+are colored — no scripted clicking needed for that first check. For scripted interaction instead
+of eyeballing, convert screenshot-image coordinates to `click at` coordinates as
+`displayed_coord × (full_res_dimension / displayed_res_dimension) / 2` (not the raw multiplier
+the screenshot tool states, which is Retina-pixel scale, not logical-point scale), and confirm
+the target window is actually frontmost before clicking (`click at` hits whatever window is
+topmost at that screen point system-wide, not scoped to a chosen process).
+
+**M6 declared done** (M6.1 + M6.2 + M6.3 all complete; the manual interactive pass above is a
+verification follow-up, not a blocker for M6's own exit). Next is M7 (Opus-tagged in
 `docs/plan.md`: phase-2 plan written from the corpus report, the allowlist, and the measured
-Oberon-X cost).
+Oberon-X cost) — or finishing the manual verification above first, if the user prefers that
+before moving on.
