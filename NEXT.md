@@ -1,81 +1,58 @@
 # Next task
 
-**M6.3 — `web-tree-sitter` highlighting, `ERROR` nodes marked, clickable diagnostics.** Tagged
-**Sonnet** in `docs/plan.md` line 143 ("semantic-tokens provider, not Monarch").
+**M7 — Phase 2 plan.** Tagged **Opus** in `docs/plan.md` line 147: "Written from the corpus
+report, the allowlist and the measured Oberon-X cost." **M6 is now fully done** (M6.1 + M6.2 +
+M6.3) — this is a planning/writing task, not an implementation round: read the three inputs
+below and produce a Phase 2 plan document (no existing template for its shape/location in this
+repo yet — that's part of what M7 needs to decide, alongside its actual content).
 
-## What M6.2 already built (reuse, don't reimplement)
+## The three inputs M7 is written from
 
-`testbed-ui/` is now a real Vite + TypeScript app (`crates/xoft-testbed/` unchanged backend
-except one new command) — see `docs/progress/m6-testbed.md`'s M6.2 section for the full round
-writeup:
+1. **The corpus report** — `reports/corpus-report.json` (checked in, from M4.1's `xoft corpus
+   run`): 766/792 files (96.72%) parse and round-trip cleanly, 26 files (3.28%) allowlisted,
+   under D8's 5% cap. `corpus/allowlist.toml` has one grounded one-line reason per excluded file
+   — read these before writing anything about "what Phase 1 didn't cover," since the reasons are
+   already categorized (stub files, one-off corpus artifacts, conditional-compilation
+   preprocessing that's structurally inexpressible with a single parse tree — see `PROGRESS.md`
+   round 25's write-up for why that last category was scoped out rather than chased).
+2. **The allowlist** — same file, `corpus/allowlist.toml`. The recurring theme across its 26
+   entries (per round 25) is Amiga Oberon's `$IF`/`$ELSE`/`$END` conditional-compilation
+   preprocessor, which no single Oberon-2 parse tree can represent both branches of — this is
+   probably the single most important "what would Phase 2 need to solve" data point.
+3. **The measured Oberon-X cost** — `docs/progress/m5-oberon-x.md`'s exit write-up: injectivity,
+   not feature size, predicts round-trip cost. An additive construct (`UNLESS`) round-trips
+   byte-identically both directions; an alias (`DO`/`BEGIN`) is one-way, and `X→2→X` only
+   normalizes rather than reproducing the original spelling. Any Phase 2 dialect-experiment
+   estimate should reason in these terms (is the proposed construct additive or an alias-style
+   rename?) rather than by feature complexity.
 
-- **`src/main.ts`** wires one `monaco.editor.createDiffEditor` (`diffEditor`, module-scope) as
-  both the editable source pane (`originalModel`) and the diff view (`modifiedModel`, holds
-  `transpile`'s `output`, read-only). Diagnostics render as a plain `<ul id="diagnostics">` fed
-  by `TranspileResult.diagnostics` inside `renderDiagnostics()`. M6.3's "clickable diagnostics"
-  and "`ERROR` nodes marked" both extend this same file — `renderDiagnostics` is the natural
-  place to add click handlers, and the DiffEditor's `originalModel`/Monaco's decoration API
-  (`monaco.editor.createDecorationsCollection` or `IModelDeltaDecoration`) is how `ERROR` spans
-  would get marked.
-- **`Diagnostic.start_byte`/`end_byte` are still raw byte offsets**, not Monaco
-  `{lineNumber, column}` and not JS string indices (UTF-16 code units) — M6.2 deliberately
-  deferred this conversion (decision 2 from the M6.2 planning round). This is now M6.3's
-  problem to solve: `xoft_core::codec::Document` already maps each byte to one `char`
-  (D3's bijection), so a byte offset → Monaco position conversion needs that codec, not a
-  naive `text.slice(byteOffset)`. Decide whether the conversion happens in Rust (a new command
-  or a widened `Diagnostic`) or in TS (shipping enough of the byte↔char mapping to the
-  frontend) — this is exactly the kind of thing to confirm with the user before coding, per this
-  project's "ambiguous syntax, ask" rule (applies to design ambiguity too, not just grammar).
-- **`web-tree-sitter`** (the WASM build of tree-sitter, for in-browser parsing) is not wired up
-  anywhere yet — M6.2 never parses in the frontend at all, it only calls the three/four backend
-  commands. M6.3 is the first round that needs a `.wasm` grammar artifact
-  (`tree-sitter build --wasm` on `grammars/tree-sitter-oberon2/` and/or
-  `tree-sitter-oberon-x/`) and a way to load it into the Vite app (likely another `?url`-style
-  Vite asset import, or copying into `public/`). No existing precedent in this repo for shipping
-  a `.wasm` asset through Vite — expect this to need its own small investigation, not just
-  "add the npm package."
-- **Backend security boundary, already closed**: `list_corpus`/`read_corpus_file` no longer
-  accept `roots_toml` over IPC at all (`lib.rs`'s wrappers read `corpus/roots.toml` from disk
-  themselves). Don't reintroduce a `roots_toml` parameter on any new M6.3 command without
-  re-reading `docs/insights.md` round 39 first — the lesson there (a new command mirroring an
-  existing parameter shape inherits that shape's trust boundary, not just its convenience)
-  applies directly if M6.3 adds another IPC command.
-- `cargo tauri dev` still hasn't been verified in a real window in this environment (no display
-  server) — M6.1 and M6.2 both flagged this. Worth doing on a machine with a display before or
-  during M6.3, since M6.3 is the first round that would visibly show `ERROR`-node highlighting
-  and click-to-diagnostic behavior — those are much harder to verify by reading code than a
-  plain DiffEditor.
+## Not yet decided (ask the user before writing, per this project's "ambiguous syntax, ask" rule
+extended to planning ambiguity — same pattern M6.1–M6.3 each followed)
 
-## Real decisions to make before coding
-
-`docs/plan.md` line 143 only says "`web-tree-sitter` highlighting, `ERROR` nodes marked,
-clickable diagnostics." Likely open questions, not yet resolved with the user:
-
-1. **Highlighting scope**: full syntax highlighting (a Monaco semantic-tokens provider driving
-   `web-tree-sitter`'s parse tree, per the plan's own "semantic-tokens provider, not Monarch"
-   note) for both grammars (`tree-sitter-oberon2`, `tree-sitter-oberon-x`), or just enough to
-   mark `ERROR` node spans distinctly? These could be two separate, independently-shippable
-   pieces of work.
-2. **Byte offset → Monaco position conversion** (carried over from M6.2, see above): where does
-   it live, Rust or TS?
-3. **Click behavior**: does clicking a diagnostic in the list jump the editor's cursor/selection
-   to that span (needs the conversion above either way), or does it also need reverse
-   navigation (clicking a squiggle in the editor highlights the matching list entry)?
-4. **`.wasm` asset delivery**: how does the grammar's compiled WASM get from
-   `grammars/tree-sitter-oberon2/` into something Vite serves — build step, checked-in artifact,
-   or generated at `npm run build` time alongside the existing `tree-sitter generate` CI step?
+- **Where does the M7 plan document live?** No precedent in this repo — `docs/plan.md` is the
+  existing Phase 1 plan (decisions D1–D8, milestone table); M7's output could be a new
+  `docs/plan-phase2.md`, an appended section to `docs/plan.md` itself, or something else. Ask
+  before creating a new top-level doc file.
+- **What Phase 2 scope is actually being planned?** `docs/plan.md`'s own text only says M7
+  produces "a Phase 2 plan" — it doesn't enumerate what Phase 2 covers (more dialects? the
+  conditional-compilation preprocessing deferred at M1/M4? something else entirely, e.g. a
+  language-server protocol layer building on M6's testbed?). This is the single biggest open
+  question — resolve it with the user first, since everything else in M7 depends on scope.
 
 ## Not in scope
 
-CI wiring for `xoft-testbed` (deferred twice now, M6.1 and M6.2); M7.
+Implementation of anything Phase 2 ends up deciding — M7 is the plan, not the work.
 
 ## State of the tree
 
-- `cargo test --workspace` green: `xoft-core` 38, `xoft-cli` 15, `xoft-testbed` 8.
+- `cargo test --workspace` green: `xoft-core` 44, `xoft-cli` 15, `xoft-testbed` 9.
 - `cargo clippy --workspace --all-targets` clean.
-- `testbed-ui`: `npx tsc --noEmit` clean, `npm run build` (Vite) succeeds. `npm install` has been
-  run in `testbed-ui/` on this machine — `node_modules/`/`dist/` both gitignored (added to
-  `.gitignore` this round).
-- `tree-sitter test` unchanged by M6.2 (85 + 89, untouched this round).
-- Not verified: `cargo tauri dev` in a real window (no display server here, same limitation
-  since M6.1).
+- `testbed-ui`: `npx tsc --noEmit` clean, `npm run build` succeeds (bundles both grammar
+  `.wasm`s + web-tree-sitter's own runtime `.wasm`). `npm install` has been run in
+  `testbed-ui/` on this machine.
+- `tree-sitter test` unchanged by M6 (85 + 89).
+- Not verified: `cargo tauri dev` in a real window (no display server in this environment) —
+  standing limitation since M6.1, now also covers M6.3's semantic-token coloring and
+  click-to-jump/click-to-select behavior, which have only been verified via `tsc`/`vite build`
+  and a standalone Node probe of the parsing+query layer (see `docs/progress/m6-testbed.md`'s
+  M6.3 section).

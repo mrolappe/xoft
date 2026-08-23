@@ -32,9 +32,14 @@ export interface Manifest {
   files: Entry[];
 }
 
+export interface Position {
+  line: number;
+  column: number;
+}
+
 export interface Diagnostic {
-  start_byte: number;
-  end_byte: number;
+  start: Position;
+  end: Position;
   message: string;
 }
 

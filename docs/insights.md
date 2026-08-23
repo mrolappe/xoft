@@ -1167,3 +1167,51 @@ pattern," check whether the existing pattern has any open/acknowledged security 
 copying its parameter shape — matching the pattern can mean matching the caveat, and a plan
 review that only checks "is this internally consistent with the existing code" won't surface
 that on its own.
+
+## Round 40 — 2026-08-23
+
+### Reusing a hand-authored highlight query as the semantic-tokens source avoids writing a second classification scheme
+
+M6.3 needed to color source text by syntactic role in Monaco. The obvious-looking approach —
+walk the parse tree and hand-write a switch over node kinds — would have duplicated
+`grammars/*/queries/highlights.scm`'s existing classification (already vendored in M1.5, already
+covering every node kind that matters) in a second, TypeScript-shaped form that could drift from
+the first. Running the *same* `.scm` query file through `web-tree-sitter`'s `Query.captures` API
+client-side means the grammar's classification of "what counts as a keyword/type/variable" has
+exactly one source of truth, shared between whatever eventually consumes `highlights.scm` outside
+the browser (an editor plugin, `tree-sitter query`) and this testbed. The remaining work was only
+translation — capture name → Monaco's `SemanticTokensLegend` shape — not re-classification.
+
+### Nested/overlapping tree-sitter captures don't need the full highlight-priority algorithm to render correctly in a leaf-token model
+
+`highlights.scm` captures at multiple grammar levels for the same source span on purpose (a whole
+`(type)` node gets `@type`, while a `(qualident (ident) @type.builtin ...)` nested inside it
+narrows a specific identifier further) — this is normal, idiomatic tree-sitter-highlight query
+style, not a bug to route around. The standard fix (used by `tree-sitter-highlight`,
+`nvim-treesitter`) is a real algorithm: sort captures, maintain a stack, and split a wider
+capture's rendered region around a narrower one that starts inside it. For a token model where
+every meaningful token is ultimately a *leaf* node in this grammar (identifiers, keywords,
+literals — composite nodes like `type` or `designator` never directly hold rendered text of their
+own beyond their leaf children), the equivalent-but-simpler approach is: index captures by node
+id, then for each leaf walk up its ancestor chain and take the *first* (innermost) capture found.
+Non-overlapping by construction (one decision per leaf), and correct precedence falls out for
+free because "innermost" and "most specific" coincide in this grammar's query shapes. Would not
+generalize to a query where a *leaf* itself carries two different captures from two patterns (not
+observed in this file) or where composite non-leaf spans need their own coloring independent of
+their leaves (also not the case here) — noted as the boundary of where this shortcut stops being
+correct, in case a future `highlights.scm` change adds either shape.
+
+### Verify a client-side WASM+query pipeline standalone (Node) before wiring it into an editor UI that can't be visually tested here
+
+With no display server in this environment (a standing limitation since M6.1), the usual path to
+"does this actually work" — open the app, look at the colors — isn't available. Splitting the
+new logic into a layer that's Monaco-independent (parse + query capture extraction) and a thin
+Monaco-facing layer on top (position conversion, `SemanticTokensBuilder` encoding) meant the first
+layer could be exercised directly: a throwaway Node script loading the real compiled `.wasm`
+grammars and running the real `highlights.scm` query against real sample sources, printing
+capture names/spans. This caught real, useful information cheaply (confirmed the grammars load
+and parse cleanly under `web-tree-sitter`, confirmed the query's actual output shape for
+`UNLESS`/`DO`) that would otherwise have been "probably fine" until the first real browser run.
+The Monaco-facing layer (position math, marker/decoration wiring, click handlers) still has no
+verification beyond `tsc`/`vite build` this round — the split narrows, but doesn't eliminate, what
+"not verified: `cargo tauri dev`" actually covers.

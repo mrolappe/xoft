@@ -5,6 +5,7 @@
 
 use std::path::Path;
 
+use xoft_core::position::Position;
 use xoft_testbed_lib::commands::{self, Direction};
 
 fn repo_root() -> std::path::PathBuf {
@@ -35,6 +36,19 @@ fn roundtrip_check_reports_the_parse_failure_on_a_broken_fixture() {
     let result = commands::roundtrip_check("missing_semicolon.mod", &raw);
     assert!(!result.parse_ok);
     assert!(!result.diagnostics.is_empty());
+}
+
+#[test]
+fn roundtrip_check_diagnostics_carry_a_line_column_position() {
+    // missing_semicolon.mod's ERROR node (docs/errors.md round 31: lands in "assignment")
+    // actually covers the trailing "10" on line 4 -- confirmed by running this assertion
+    // against the real parse first (checklist: don't hand-derive an ERROR node's shape from
+    // memory), not at the file's default (1, 1).
+    let raw = read("crates/xoft-cli/tests/fixtures/broken/missing_semicolon.mod");
+    let result = commands::roundtrip_check("missing_semicolon.mod", &raw);
+    let d = result.diagnostics.first().expect("at least one diagnostic");
+    assert_eq!(d.start, Position { line: 4, column: 8 }, "unexpected diagnostic: {d:?}");
+    assert_eq!(d.end, Position { line: 4, column: 10 }, "unexpected diagnostic: {d:?}");
 }
 
 #[test]

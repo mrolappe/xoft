@@ -70,3 +70,12 @@ main {
   list-style: none;
   border-top: 1px solid #888;
 }
+
+#diagnostics li {
+  cursor: pointer;
+  padding: 0.1rem 0;
+}
+
+#diagnostics li.selected {
+  background: rgba(200, 0, 0, 0.2);
+}

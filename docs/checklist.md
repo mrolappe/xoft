@@ -97,3 +97,11 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
   output, no reverse rule is correct and the round-trip invariant must be scoped to where it
   holds, not engineered around. A round-trip test whose fixtures all use one spelling will pass
   anyway — pick fixtures that use *both* sides of any alias.
+- **Guessed an ERROR node's line/column from an old round's "lands in parent kind X" note instead
+  of the real parse** → run any new assertion about a diagnostic's byte span/position against the
+  real parser first (red-first), the same as an S-expression tree shape; a note about *which
+  parent* an ERROR lands in says nothing about *where* it starts.
+- **A repo-wide `*.wasm` `.gitignore` rule silently dropped newly checked-in grammar artifacts,
+  invisible to plain `git status`** → after deciding to check in a new binary artifact, confirm
+  with `git status --porcelain --ignored` or `git check-ignore -v <path>` that it isn't caught by
+  an existing broad ignore rule, before trusting `git add -A` to have picked it up.

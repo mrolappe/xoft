@@ -10,6 +10,7 @@ use xoft_core::codec::Document;
 use xoft_core::diagnostic::{self, Diagnostic};
 use xoft_core::grammar;
 use xoft_core::mapping;
+use xoft_core::position::{byte_to_position, Position};
 
 /// Which way `transpile` maps. The testbed's `transpile` means the Oberon-X<->Oberon-2
 /// dialect mapping (`xoft_core::mapping`), not the CLI's check+round-trip `transpile` --
@@ -21,17 +22,39 @@ pub enum Direction {
     Oberon2ToOberonX,
 }
 
+/// A `Diagnostic`'s byte span, rendered as 1-based line/column against the exact text it was
+/// parsed from (M6.3) -- `xoft_core::diagnostic::Diagnostic` itself stays byte-only, since
+/// the CLI's `codespan-reporting` rendering needs bytes, not positions; only the IPC-facing
+/// wrapper the frontend consumes gains this shape.
+#[derive(Debug, Clone, Serialize)]
+pub struct PositionedDiagnostic {
+    pub start: Position,
+    pub end: Position,
+    pub message: String,
+}
+
+fn position_diagnostics(text: &str, diagnostics: Vec<Diagnostic>) -> Vec<PositionedDiagnostic> {
+    diagnostics
+        .into_iter()
+        .map(|d| PositionedDiagnostic {
+            start: byte_to_position(text, d.start_byte),
+            end: byte_to_position(text, d.end_byte),
+            message: d.message,
+        })
+        .collect()
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct TranspileResult {
     pub output: String,
-    pub diagnostics: Vec<Diagnostic>,
+    pub diagnostics: Vec<PositionedDiagnostic>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RoundtripResult {
     pub parse_ok: bool,
     pub round_trip_ok: bool,
-    pub diagnostics: Vec<Diagnostic>,
+    pub diagnostics: Vec<PositionedDiagnostic>,
 }
 
 /// Parses `roots_toml`'s *content* (not a path -- the `#[tauri::command]` wrapper owns the
@@ -79,7 +102,7 @@ pub fn roundtrip_check(filename: &str, raw: &[u8]) -> RoundtripResult {
     RoundtripResult {
         parse_ok: result.check.diagnostics.is_empty(),
         round_trip_ok: result.output_bytes == raw,
-        diagnostics: result.check.diagnostics,
+        diagnostics: position_diagnostics(&doc.text, result.check.diagnostics),
     }
 }
 
@@ -96,7 +119,7 @@ pub fn transpile(direction: Direction, text: &str) -> TranspileResult {
     parser.set_language(&language).expect("grammar loads");
     let tree = parser.parse(text, None).expect("parse always returns a tree");
     TranspileResult {
-        diagnostics: diagnostic::diagnostics(&tree),
+        diagnostics: position_diagnostics(text, diagnostic::diagnostics(&tree)),
         output: map(&tree, text),
     }
 }

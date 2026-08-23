@@ -417,3 +417,35 @@ key name from what reads naturally — the build-script error names the exact ex
 shape (`untagged enum BeforeDevCommand`) but not its field names; confirm against
 `https://schema.tauri.app/config/2` or by testing the guess with `cargo build` immediately
 rather than assuming it's right because the JSON parses.
+
+## Round 40 — 2026-08-23
+
+### Hand-guessed a diagnostic's line/column from an old round's note instead of the real parse
+
+Writing `roundtrip_check_diagnostics_carry_a_line_column_position`'s first draft, guessed the
+`missing_semicolon.mod` ERROR node would start at line 5 (`b := 20`) by analogy with
+`docs/errors.md` round 31's "lands in `assignment`" note about *which parent kind* the ERROR node
+gets, not *where* it starts. Running the test red-first (per TDD, before trusting the assertion)
+showed the real position is line 4, columns 8–10 — the recovery actually swallows the trailing
+`10` on the *previous* line, not the next line's `b`. Caught immediately by the red run itself,
+no wasted round-trip.
+
+**Mitigation:** already covered by an existing checklist entry ("hand-wrote an expected
+S-expression from memory") — this is the same failure mode one layer up (a derived *fact about*
+a parse, not the parse tree shape itself). Re-affirms: run the assertion against the real parser
+first and copy the actual value, for any property of an `ERROR`/`MISSING` node, not just its tree
+shape.
+
+### A repo-wide `*.wasm` `.gitignore` rule silently swallowed the checked-in grammar artifacts
+
+M6.3's compiled `.wasm` grammars were placed under `testbed-ui/src/grammars/` per the user's
+"checked-in artifact" decision, but `git status` never showed them — the root `.gitignore` has a
+blanket `*.wasm` rule from an earlier round, with no memory of what it was originally added to
+exclude. `git add` on the directory silently added zero files; only `git status --porcelain
+--ignored` (not plain `git status`, which omits ignored paths entirely) revealed they were being
+dropped.
+
+**Mitigation:** after deciding to check in a new binary artifact, confirm it actually shows as
+untracked/addable (`git status --porcelain --ignored | grep <name>` or `git check-ignore -v
+<path>`) before assuming an `Edit`/`Write` + a later `git add -A` will pick it up — a broad
+existing ignore rule can make a file invisible to plain `git status` with no error at any step.
