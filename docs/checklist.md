@@ -105,3 +105,10 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
   invisible to plain `git status`** → after deciding to check in a new binary artifact, confirm
   with `git status --porcelain --ignored` or `git check-ignore -v <path>` that it isn't caught by
   an existing broad ignore rule, before trusting `git add -A` to have picked it up.
+- **Assumed a Monaco diff editor's "original" pane was editable because the code comment said
+  so, wasted clicks/a restart chasing a targeting mistake** → check the widget library's own
+  default for an option (e.g. `createDiffEditor`'s `originalEditable: false` default) before
+  re-attempting a rejected interaction with adjusted coordinates.
+- **Explained an empty/transparent UI region away as purely a rendering bug** → when a region
+  renders unexpectedly blank, check for an underlying data/error cause too (trace any visible
+  error text into the code) before concluding it's cosmetic.

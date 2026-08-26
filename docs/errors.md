@@ -449,3 +449,33 @@ dropped.
 untracked/addable (`git status --porcelain --ignored | grep <name>` or `git check-ignore -v
 <path>`) before assuming an `Edit`/`Write` + a later `git add -A` will pick it up — a broad
 existing ignore rule can make a file invisible to plain `git status` with no error at any step.
+
+## Round 41 — 2026-08-26
+
+### Assumed a Monaco diff editor's "original" pane was editable because the code intended it to be
+
+`main.ts`'s own comment says the original model is "the live, editable source," and only
+`getModifiedEditor().updateOptions({ readOnly: true })` is called — nothing sets the original
+side's editability. Spent several failed click/type attempts (including a full app restart,
+suspecting a stale build) assuming the clicks were landing on the wrong pane, before checking
+Monaco's actual default: `createDiffEditor` defaults `originalEditable` to `false`, so the
+*intended* editable pane was read-only from the start, by omission, not by a targeting mistake.
+
+**Mitigation:** when a UI element rejects interaction ("Cannot edit," greyed out, no response),
+check the widget library's own default for that exact option before re-attempting the click with
+adjusted coordinates — a silently-wrong default is a common cause and re-clicking teaches
+nothing new if the target was never interactive to begin with.
+
+### Read an empty/transparent UI region as purely cosmetic before checking for a data error underneath
+
+The corpus sidebar's empty appearance (an unrelated window showing through, see the M6.3 addendum
+in `docs/progress/m6-testbed.md`) was initially treated as fully explained by a window-transparency
+bug. It wasn't: the sidebar was also genuinely empty because `manifest::build` had aborted on one
+missing machine-local corpus root, discarding every root's file list, not just the broken one's —
+a real second bug, only found by reading the one line of real (non-bleed-through) text that was
+present and tracing it to actual code.
+
+**Mitigation:** when a UI region renders unexpectedly blank, check for a rendering/styling
+explanation *and* an underlying data/error explanation before concluding it's cosmetic — a visible
+error string (even one rendered oddly) is a lead to trace into the code, not something to explain
+away by the more obvious-looking visual bug sitting next to it.

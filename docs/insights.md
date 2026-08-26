@@ -1215,3 +1215,35 @@ and parse cleanly under `web-tree-sitter`, confirmed the query's actual output s
 The Monaco-facing layer (position math, marker/decoration wiring, click handlers) still has no
 verification beyond `tsc`/`vite build` this round — the split narrows, but doesn't eliminate, what
 "not verified: `cargo tauri dev`" actually covers.
+
+### The Node-script pre-check narrowed, but didn't replace, an actual browser run — and the gap it left is exactly where the real bug turned out to be
+
+Round 40's Node probe (above) confirmed the parse+query layer produces correct captures for both
+grammars. Round 41's real `cargo tauri dev` run confirmed semantic-token coloring still doesn't
+render at all, anywhere, on any file. Put together: the bug is almost certainly in the layer the
+Node script *couldn't* reach — Monaco's own provider registration/legend/theme wiring (does
+`registerDocumentSemanticTokensProvider` actually get invoked for the model's language id? does
+the legend's token-type names resolve to an actual theme color?) — not the tree-sitter/query
+layer, which was the one part already exercised standalone. A standalone pre-check that verifies
+layer A doesn't just "reduce remaining risk" in the abstract; it tells you, once something is
+later found broken, *where to start looking first* — the layers it didn't cover.
+
+### Real hardware/OS-level verification surfaces bugs no unit test or headless build check can — and can also surface things you didn't go looking for
+
+This round found two genuine, previously-undiscovered bugs (`manifest::build` aborting entirely
+on one bad root; the diff editor's source pane silently not editable) purely by driving the real
+app with a real mouse/keyboard, after months of this testbed's coverage being "compiles, links,
+and its command bodies pass unit tests." Neither bug is reachable by `cargo test` or `tsc --noEmit`
+— one needs a genuinely missing directory on disk, the other needs an actual OS-level click
+event, which a jsdom-less unit test never sends. Manual verification against the real running
+artifact — not just "it type-checks and the pieces pass in isolation" — is doing real, distinct
+work here, and finding it worthwhile twice in one pass is a point in favor of scheduling it
+routinely for UI-facing milestones, not only when a round's own checklist happens to call for it.
+
+Also worth noting as a operational caution, not a code lesson: screenshotting the real desktop to
+verify a real window (as opposed to a synthetic/headless capture) means whatever else is on
+screen — other windows, an inbox, a browser tab — can end up in the capture, especially once a
+target app's own transparency bug is in play (see `docs/progress/m6-testbed.md`'s round-41
+addendum, finding 5). Treat any such incidental capture as sensitive by default: delete it
+promptly once reviewed, and don't describe its contents in written records beyond "unrelated
+window contents were briefly visible."

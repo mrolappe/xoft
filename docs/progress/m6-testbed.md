@@ -305,3 +305,79 @@ verification follow-up, not a blocker for M6's own exit). Next is M7 (Opus-tagge
 `docs/plan.md`: phase-2 plan written from the corpus report, the allowlist, and the measured
 Oberon-X cost) — or finishing the manual verification above first, if the user prefers that
 before moving on.
+
+### Addendum — manual `cargo tauri dev` pass, completed (2026-08-26, round 41)
+
+Finished the pass round 40 left incomplete. Both open checks now have a definitive answer, and
+the pass surfaced two real bugs plus one incidental environment finding.
+
+**1. Semantic-token coloring does not render — confirmed real bug, not a stale screenshot.**
+Loaded `oberon-a`'s `examples/Oberon0/Oberon0.Mod` and `examples/Oberon0/GraphicElems0.Mod`
+(real `MODULE`/`IMPORT`/`CONST`/`TYPE`/`POINTER TO`/`RECORD`/`VAR`/`PROCEDURE`/`BEGIN`/`IF`/
+`ELSIF`/`REPEAT`/`NEW` variety), ran Transpile, waited for the async semantic-tokens request to
+settle: every keyword, type, and string still renders in plain black, identical to identifiers.
+Round 40's three candidate explanations (provider not attaching, theme not applying the legend's
+token types, or the screenshot predating the async request) are narrowed to the first two — the
+async-race explanation is ruled out, since this was checked well after load and after a
+completed Transpile. Not root-caused this round (out of scope for a verification pass per
+`CLAUDE.md`'s test-first method — needs its own TDD fix); worth checking first whether Monaco's
+`registerDocumentSemanticTokensProvider` is actually being invoked for the `"oberon2"`/
+`"oberon-x"` language ids at all (e.g. a legend/provider registration mismatch) before assuming
+the query layer is at fault, since `docs/progress/m6-testbed.md`'s M6.3 section already verified
+the parsing+query layer directly against both grammars with a throwaway Node script.
+
+**2. Bidirectional click navigation — confirmed working, both directions.** Loaded
+`examples/amok/IntuiPointer/IntuiPointerDemo.mod` (a real, already-known parse failure —
+`corpus/allowlist.toml`'s `$IF OberonA`/`$ELSE`/`$END` conditional-compilation case), ran
+Transpile, got one real diagnostic (`31:3-74:1: unexpected token in module body`). Clicking the
+diagnostic list item selected the matching span in the editor (list→editor). Clicking inside that
+span in the editor (a fresh corpus-file load first, to start from an unselected state)
+highlighted the matching list item (editor→list). Both directions work as designed.
+
+**3. Real bug: `manifest::build` aborts entirely on the first unreadable corpus root.**
+`corpus/roots.toml`'s `amiga-oberon-31` path lives under `~/Nextcloud/...`, which wasn't
+materialized on this machine's disk this session (Nextcloud selective sync gap, a machine-local
+environment fact, not a repo bug) — `ls` on it returned "No such file or directory" even though
+three of the four configured roots (`oberon-a`, `stj`, `voc`) resolve fine. `manifest::build`
+(`crates/xoft-cli/src/manifest.rs:53`) loops over roots and uses `?` on `WalkDir`'s per-entry
+`Result` inside the loop; the very first `io::Error` (root doesn't exist) short-circuits the
+*entire* function, discarding every root already walked and every root still to come. Effect: one
+bad machine-local path blanked the *whole* corpus sidebar (all four roots), not just the broken
+one's section — confirmed by temporarily commenting out the `amiga-oberon-31` entry (reverted via
+`git checkout` immediately after, `corpus/roots.toml`'s tracked content is unchanged), which let
+the other three roots' ~200+ files populate normally. Fix (not applied this round, verification
+only): `build` should collect a per-root `Result` and continue past a failing root, surfacing that
+root's failure without discarding the others' file lists — same shape as `corpus_run.rs`'s
+existing per-file outcome aggregation, applied one level up.
+
+**4. Real bug: the diff editor's "original" (source) pane is not actually editable by a user.**
+`main.ts`'s own comment says the original model is "the live, editable source (typed, or loaded
+from the corpus picker)", and `diffEditor.getModifiedEditor().updateOptions({ readOnly: true })`
+is called only on the *modified* side — but Monaco's `createDiffEditor` defaults
+`originalEditable` to `false`, and `main.ts:35-38` never passes `originalEditable: true` in the
+constructor options. Net effect: **both** panes reject keyboard input ("Cannot edit in read-only
+editor"), confirmed by clicking into the original pane and typing. Loading a file via the corpus
+picker still works, because `originalModel.setValue(...)` is a direct model mutation that bypasses
+the editor's read-only UI gate — so the one interaction path this round's checklist could
+fall back to (corpus click) masked the bug, while the documented fallback ("type something invalid
+directly into the editor") is the one path that's actually broken. Fix (not applied — same
+verification-only scope as #3): add `originalEditable: true` to the options object at
+`testbed-ui/src/main.ts:35-37`.
+
+**5. Incidental: the app window has no opaque background, letting other windows show through.**
+Discovered while screenshotting for #1/#2, unrelated to what was being checked: `#corpus-list`'s
+area (and the general `body`/`#app` background) render fully transparent where no content
+draws — this Tauri window is apparently configured transparent (or defaults to it) and nothing in
+`style.css` sets an opaque `background-color` on `body`/`#app`. In practice this meant whatever
+window happened to be stacked behind `xoft-testbed` at the time (this session: a terminal, an
+email client, a browser) was visible through the corpus sidebar's empty space. No source-code fix
+attempted this round; noted here because it's a real, previously-undiscovered UI defect (not just
+a screenshot artifact) and because it caused an incidental, transient exposure of unrelated
+on-screen content during this verification session — those screenshots were deleted immediately
+after being reviewed rather than kept. Fix, when picked up: an explicit `background: <theme
+color>` on `body` in `testbed-ui/src/style.css` closes it with a one-line change.
+
+`corpus/roots.toml` and `crates/xoft-testbed/Cargo.toml` (the latter's known incidental
+`cargo build` rewrite, per the "State of the tree" note below) were both restored via `git
+checkout` before this round ended; `git status` is clean. No source files changed this round —
+pure verification, per the plan.
