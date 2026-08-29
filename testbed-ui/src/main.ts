@@ -1,6 +1,7 @@
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 
+import { DIFF_EDITOR_OPTIONS } from "./editor-config";
 import type { Dialect } from "./highlighting";
 import { registerHighlighting } from "./highlighting";
 import type { Diagnostic, Direction, Entry, Manifest, TranspileResult } from "./types";
@@ -32,9 +33,7 @@ registerHighlighting();
 const originalModel = monaco.editor.createModel(sampleSource, "oberon-x");
 const modifiedModel = monaco.editor.createModel("", "oberon2");
 
-const diffEditor = monaco.editor.createDiffEditor(diffContainer, {
-  automaticLayout: true,
-});
+const diffEditor = monaco.editor.createDiffEditor(diffContainer, DIFF_EDITOR_OPTIONS);
 diffEditor.setModel({ original: originalModel, modified: modifiedModel });
 diffEditor.getModifiedEditor().updateOptions({ readOnly: true });
 

@@ -479,3 +479,38 @@ present and tracing it to actual code.
 explanation *and* an underlying data/error explanation before concluding it's cosmetic — a visible
 error string (even one rendered oddly) is a lead to trace into the code, not something to explain
 away by the more obvious-looking visual bug sitting next to it.
+
+## Round 42 — 2026-08-29
+
+### Applied a Monaco global editor option via `updateOptions()` after construction, when it needed to be in the constructor's own options object
+
+Fixing the semantic-token coloring bug, the first attempt set `semanticHighlighting.enabled` via
+`diffEditor.getOriginalEditor().updateOptions({...})` right after `setModel` — type-correct once
+cast to `IGlobalEditorOptions`, ran with no errors, and did nothing: real `cargo tauri dev`
+re-check still showed all-black text. Reading `monaco-editor`'s own bundled source
+(`esm/vs/editor/contrib/semanticTokens/browser/documentSemanticTokens.js`) showed why:
+`DocumentSemanticTokensFeature` decides whether a model's semantic tokens are ever fetched at all
+via a **one-time** scan over existing models, run synchronously during editor construction — a
+`updateOptions()` call afterward is too late, and nothing in practice re-triggered the scan for
+this app's usage pattern.
+
+**Mitigation:** when a "just call `updateOptions()`/`setSomething()` after creation" fix compiles
+and runs but visibly has no effect, check whether the target feature gates itself with a one-time
+scan at *construction* time rather than reading the option live — if so, pass the value inside the
+constructor's own options object instead, and verify by reading the library's actual bundled
+source (not just its public `.d.ts` surface) when the mechanism isn't obvious from types alone.
+
+### Tried to test a bug fix by opening the frontend directly in a plain browser tab, without checking whether the script even runs outside its host first
+
+Debugging the same coloring bug, the first isolation attempt was "open `http://localhost:5173` in
+headless Chrome and check the DOM" — reasonable-sounding, since the Vite dev server serves plain
+HTTP independent of Tauri. It failed immediately: `main.ts` reads `window.__TAURI__.core` at
+module-import time with no guard, so the whole script throws before reaching any Monaco code,
+outside a real Tauri window. The wasted step was checking the DOM state before checking whether
+the module had thrown at all.
+
+**Mitigation:** before building an isolation harness around a frontend entry file, check for a
+hard dependency on its host runtime (`window.__TAURI__`, `window.electronAPI`, etc.) accessed at
+module scope with no guard — if present, the entry file can't run standalone at all, and the
+harness needs to call the specific exported pieces under test directly (or a side-effect-free
+module extracted for that purpose) rather than importing the whole entry file.

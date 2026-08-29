@@ -112,3 +112,11 @@ writeups (with the diagnostic trail) live in `docs/errors.md`; broader lessons l
 - **Explained an empty/transparent UI region away as purely a rendering bug** → when a region
   renders unexpectedly blank, check for an underlying data/error cause too (trace any visible
   error text into the code) before concluding it's cosmetic.
+- **Set a Monaco global editor option via `updateOptions()` after construction; it needed to be in
+  the constructor's own options object** → when a post-construction `updateOptions()`/`setX()` call
+  compiles and runs but has no visible effect, check whether the feature gates itself with a
+  one-time scan at construction time — read the library's bundled source, not just its `.d.ts`.
+- **Tried to isolate-test a frontend bug by loading the entry file in a plain browser tab without
+  checking it can run outside its host first** → check for an unguarded host-runtime dependency
+  (`window.__TAURI__` etc.) at module scope before building a harness around the whole entry file;
+  import just the side-effect-free piece under test instead.

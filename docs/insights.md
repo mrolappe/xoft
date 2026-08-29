@@ -1247,3 +1247,58 @@ target app's own transparency bug is in play (see `docs/progress/m6-testbed.md`'
 addendum, finding 5). Treat any such incidental capture as sensitive by default: delete it
 promptly once reviewed, and don't describe its contents in written records beyond "unrelated
 window contents were briefly visible."
+
+### A frontend script with top-level side effects can't be unit-tested by importing it — pull the pure part into its own module instead of restructuring the whole file
+
+`testbed-ui/src/main.ts` runs everything at module-import time (`document.getElementById`,
+`window.__TAURI__.core` access, `createDiffEditor`, `void loadCorpus()`), so importing it in any
+test environment — Vitest's default node environment, or even a plain browser tab outside Tauri —
+throws immediately (`Cannot read properties of undefined (reading 'core')`) before anything useful
+runs. The lazy fix wasn't restructuring `main.ts` into an init function (bigger than the bug
+needed); it was moving just the value being tested — the diff editor's construction options — into
+a new file with zero top-level side effects and a type-only `monaco-editor` import
+(`testbed-ui/src/editor-config.ts`), so it can be imported and asserted on with no DOM, no Monaco
+runtime, no Tauri global. When a target script can't be imported for testing, ask whether the thing
+that actually needs a regression test is separable into a side-effect-free unit, before reaching
+for heavier tooling (jsdom, mocking `window.__TAURI__`, etc.) to make the whole script importable.
+
+### When the real target can't be instrumented from outside, build the smallest thing that can be, running the exact same code path
+
+The semantic-token coloring bug (M6.3 round-41 finding #1) needed programmatic access to computed
+styles and console output to root-cause — screenshots alone (round 41's approach) couldn't
+distinguish "provider never invoked" from "provider invoked, produced no tokens" from "tokens
+produced, theme didn't color them." Two things made this hard here specifically: the real app's
+`main.ts` can't be loaded outside Tauri (previous entry), and the real window is a WKWebView, not
+Chromium, so Chrome DevTools Protocol can't attach to it directly the way it could attach to a
+plain web page. The fix: a throwaway `debug.html`/`debug.ts` (deleted before commit) that calls the
+*exact same* `registerHighlighting()` + `createDiffEditor(..., DIFF_EDITOR_OPTIONS)` shape as
+`main.ts`, minus the one line that needs Tauri, served by the same already-running Vite dev server
+— then drive that with a headless Chromium (already-installed Brave, `--headless=new
+--remote-debugging-port=`) and a raw Chrome DevTools Protocol client over Node's built-in
+`fetch`/`WebSocket` (no `puppeteer`/`playwright` dependency needed). This gave direct
+`getComputedStyle()` reads, real console output, and `Runtime.exceptionThrown` events — none of
+which a screenshot-and-eyeball loop can distinguish. The harness must call the *real* exported
+constants/functions from the real source files (not a hand-copied re-implementation) or a fix
+verified against the harness can silently not be the fix that matters against the real code; here
+that meant importing `DIFF_EDITOR_OPTIONS` from `editor-config.ts` and `registerHighlighting` from
+`highlighting.ts` directly, and re-running the exact same probe again as the final check once
+`main.ts` itself was edited to match. Once root-caused this way, the fix still got a final visual
+re-check in the real `cargo tauri dev` window — the headless proxy is for finding the bug fast, not
+for replacing verification against the actual target.
+
+### An `updateOptions()` call after `setModel` can be too late for a setting that gates one-time construction-time behavior
+
+Monaco's `semanticHighlighting.enabled` looked like a simple editor option, so the first fix
+attempt applied it via `diffEditor.getOriginalEditor().updateOptions({...})` right after
+`setModel` — plausible, type-correct (once typed as `IGlobalEditorOptions`), and wrong. Monaco's
+`DocumentSemanticTokensFeature` (the contribution that decides whether a model's semantic tokens
+are ever fetched at all) does its per-model eligibility check **once**, synchronously, during
+editor construction — before any code that runs after `createDiffEditor` returns. A later
+`updateOptions()` call landed after that one-time check had already excluded the model, and
+nothing re-triggered it in practice. General lesson: when a fix involving a "just call
+`updateOptions()`/`setSomething()` after creation" pattern doesn't take effect, check whether the
+underlying feature gates itself with a one-time scan at *construction* time rather than reading the
+option live on every use — if so, the value has to be present in the constructor's own options
+object, not applied afterward. Confirmed by reading `monaco-editor`'s own bundled
+non-minified source (`node_modules/monaco-editor/esm/vs/editor/contrib/semanticTokens/`) rather
+than guessing from the public `.d.ts` surface alone.

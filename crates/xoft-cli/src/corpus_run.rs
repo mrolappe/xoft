@@ -144,7 +144,7 @@ pub fn aggregate(allowlist: &Allowlist, outcomes: Vec<FileOutcome>) -> CorpusRep
 /// aggregates the result. `allowlist` entries are excluded from the pass/fail counts (D8)
 /// but still appear in `total_files`/per-root `allowlisted` counts.
 pub fn run(roots: &[Root], allowlist: &Allowlist) -> Result<CorpusReport> {
-    let m = manifest::build(roots)?;
+    let m = manifest::build(roots);
     let root_paths: BTreeMap<&str, &Path> =
         roots.iter().map(|r| (r.alias.as_str(), r.path.as_path())).collect();
 

@@ -59,12 +59,15 @@ fn main() -> Result<()> {
                 &std::fs::read_to_string(&roots)
                     .with_context(|| format!("reading {}", roots.display()))?,
             )?;
-            let m = manifest::build(&config.root)?;
+            let m = manifest::build(&config.root);
             std::fs::write(&out, serde_json::to_string_pretty(&m)? + "\n")?;
             for r in &m.roots {
                 println!("{:>18}  {:>4} files  {:>7} KB", r.alias, r.files, r.bytes / 1024);
             }
             println!("{:>18}  {:>4} files -> {}", "total", m.files.len(), out.display());
+            for f in &m.failures {
+                eprintln!("{:>18}  failed: {}", f.alias, f.error);
+            }
             Ok(())
         }
         Command::Corpus {

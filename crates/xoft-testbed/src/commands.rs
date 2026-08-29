@@ -62,7 +62,7 @@ pub struct RoundtripResult {
 /// `xoft_cli::manifest::build` rather than re-deriving the corpus walk.
 pub fn list_corpus(roots_toml: &str) -> anyhow::Result<Manifest> {
     let config: RootsConfig = toml::from_str(roots_toml)?;
-    manifest::build(&config.root)
+    Ok(manifest::build(&config.root))
 }
 
 /// Reads one corpus file's raw bytes by `(root alias, relative path)`, as reported by

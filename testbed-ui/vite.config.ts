@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 // M6.2: devUrl in ../crates/xoft-testbed/tauri.conf.json must match this port.
 export default defineConfig({

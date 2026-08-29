@@ -381,3 +381,96 @@ color>` on `body` in `testbed-ui/src/style.css` closes it with a one-line change
 `cargo build` rewrite, per the "State of the tree" note below) were both restored via `git
 checkout` before this round ended; `git status` is clean. No source files changed this round —
 pure verification, per the plan.
+
+### Addendum — round 42 (2026-08-29): all four round-41 bugs fixed and re-verified
+
+All four findings above are now fixed, test-first, and re-confirmed in a real `cargo tauri dev`
+window. Order: the three small fixes first, then the open-ended coloring investigation, per the
+user's explicit choice when this round started.
+
+**Finding #3 (`manifest::build` abort-on-bad-root), fixed.** `crates/xoft-cli/src/manifest.rs`:
+split the per-root walk into `walk_root(root: &Root) -> Result<(RootSummary, Vec<Entry>)>`; `build`
+now loops over roots, collects each into `summaries`/`files` on `Ok`, or into a new
+`Manifest.failures: Vec<RootFailure>` (`{ alias, error }`) on `Err`, and continues — same shape as
+`corpus_run.rs`'s existing `aggregate` (per-file, one level down). `build`'s signature dropped
+`Result` entirely: once every root-level failure is caught internally there's no remaining error
+path, so the wrapper was never meaningful (illegal states unrepresentable). Three call sites
+updated (`corpus_run.rs:147`, `main.rs:62`, `xoft-testbed/src/commands.rs:65`); the CLI's
+`corpus manifest` command now also prints any failures to stderr. New test
+`continues_past_an_unreadable_root` in `crates/xoft-cli/tests/manifest.rs`, written and confirmed
+red (compile failure against the pre-refactor signature) before implementing.
+
+**Finding #4 (source pane not editable), fixed, plus new Vitest infra.** Root cause was exactly as
+diagnosed: `createDiffEditor` never passed `originalEditable: true`. The user asked for this fix to
+get an automated regression test rather than a manual-only check, so this round also added Vitest
+to `testbed-ui` (previously zero JS/TS tests existed). The real obstacle: `main.ts` is one
+top-level imperative script — `document.getElementById`, `createDiffEditor`, `window.__TAURI__`
+access, and `void loadCorpus()` all run immediately at module-import time, so importing it in any
+test environment throws immediately outside a real Tauri window (confirmed empirically — see
+below). Rather than restructure `main.ts` into an init function (bigger than this bug needed), the
+diff editor's construction options moved into a new, zero-runtime-side-effect
+`testbed-ui/src/editor-config.ts` (type-only `monaco-editor` import, so even Monaco's own runtime
+never loads at test time) — `main.ts` now just imports `DIFF_EDITOR_OPTIONS` from it. Test written
+and confirmed red first (`Cannot find module './editor-config'`) before the file existed.
+
+**Finding #5 (transparent background), fixed.** One line: `background-color: Canvas;` on `body` in
+`testbed-ui/src/style.css` — the CSS4 system-color keyword that follows the OS light/dark setting,
+consistent with the file's existing `color-scheme: light dark`. No test added (pure-CSS visual
+fix, matches the project's established manual-re-check scope for this kind of change; the user's
+test-framework decision was scoped to finding #4 specifically).
+
+**Finding #1 (semantic-token coloring), root-caused and fixed.** The `main.ts`-side hypothesis from
+round 41 (Monaco's `semanticHighlighting.enabled` gate, off by default even with a correctly
+registered provider) was right in substance but wrong in *where* to set it: a `.updateOptions()`
+call on each constituent editor **after** `setModel` had no effect. Root cause, found by direct
+inspection of `monaco-editor`'s bundled source
+(`esm/vs/editor/contrib/semanticTokens/browser/documentSemanticTokens.js`): Monaco's
+`DocumentSemanticTokensFeature` runs a **one-time** scan over all existing models at construction
+(`modelService.getModels().forEach(model => { if (isSemanticColoringEnabled(...)) register(model) }`)
+— this is what schedules a model to ever have `provideDocumentSemanticTokens` called on it at all.
+That construction happens synchronously inside `createDiffEditor`, strictly before any code that
+runs after it — so a later `updateOptions()` call is too late; the model is simply never
+registered, and the provider is silently never invoked (confirmed with temporary `console.log`
+instrumentation inside `provideDocumentSemanticTokens`/`getLegend`: zero calls, no exceptions).
+`isSemanticColoringEnabled` does have a reactive path (`configurationService.onDidChangeConfiguration`
+re-scans all models when `affectsConfiguration('editor.semanticHighlighting')`), but a diff editor's
+constituent-editor `updateOptions()` calls did not trigger it in practice. Fix: pass
+`"semanticHighlighting.enabled": true` **inside `createDiffEditor`'s own construction options
+object** (`editor-config.ts`'s `DIFF_EDITOR_OPTIONS`, typed as
+`editor.IDiffEditorConstructionOptions & editor.IGlobalEditorOptions` since the key is
+`IGlobalEditorOptions`-only and TypeScript's `IDiffEditorConstructionOptions` doesn't declare it,
+even though Monaco accepts and forwards it at runtime). Verified empirically, not just by reading
+source — see below.
+
+**How the coloring root cause was actually found**, since it's a reusable technique: `main.ts`
+can't be loaded standalone (hard `window.__TAURI__` dependency, throws immediately in a plain
+browser tab — confirmed by trying), and the real Tauri window can't be attached to with Chrome
+DevTools Protocol (it's WKWebView, not Chromium) or easily instrumented from outside. Built a
+throwaway `testbed-ui/debug.html` + `src/debug.ts` (deleted before commit, never part of the
+diff) that exercises the exact same `registerHighlighting()` + `createDiffEditor(..., DIFF_EDITOR_OPTIONS)`
+call shape as `main.ts`, minus the Tauri dependency, served by the same already-running Vite dev
+server. Drove it headlessly with `Brave Browser --headless=new --remote-debugging-port=9333`
+(already installed, no new dependency) and a small Node script talking raw Chrome DevTools
+Protocol over Node's built-in `fetch`/`WebSocket` (no `puppeteer`/`playwright` — Node 22+'s native
+`WebSocket` global is enough for `Runtime.enable`/`Page.reload`/`Runtime.evaluate`/console capture).
+This let three things happen that the real Tauri window's AppleScript-driven workflow can't: read
+`getComputedStyle(...).color` on every `.mtk*` span programmatically instead of eyeballing a
+screenshot, see console output including temporary debug instrumentation, and catch uncaught
+exceptions directly (`Runtime.exceptionThrown`) rather than a silently blank result. Once the fix
+was confirmed this way (colored `mtk*` classes, non-black `getComputedStyle` colors), it was
+re-verified visually in the real `cargo tauri dev` window with a real corpus file
+(`examples/Oberon0/Oberon0.Mod`) as the final check, since rendered pixel color in the actual
+target environment is still the thing that matters, not the headless proxy.
+
+**Manual re-verification, real `cargo tauri dev` window** (AppleScript + `screencapture`, per
+round 41's documented technique): corpus sidebar shows `oberon-a`'s full file list even though
+`amiga-oberon-31` still doesn't resolve on this machine (Fix #3, no `roots.toml` edit needed this
+time — the missing root was already the ambient condition); window background solid, no
+stacked-window bleed-through (Fix #5); loaded `examples/Oberon0/Oberon0.Mod`, ran Transpile,
+keywords/types rendered in color in both diff panes (Fix #1); clicked into the source pane and
+typed — text inserted directly, confirming real keyboard editability (Fix #4).
+
+`cargo test --workspace` green (`xoft-cli` gained 1 test), `cargo clippy --workspace --all-targets`
+clean, `testbed-ui`: `npx tsc --noEmit` clean, `npm run build` succeeds, `npm test` (new) green (3
+tests). `crates/xoft-testbed/Cargo.toml`'s known incidental `cargo build` rewrite (adds
+`features = []`) was restored via `git checkout` before this round ended, same as round 41.
